@@ -1,0 +1,232 @@
+{% extends 'base.html' %}
+
+{% block title %}Billing & Sales{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3 class="mb-4" style="font-size: 1.5rem;">Billing & Sales</h3>
+    <div class="row">
+        <!-- Form Section -->
+        <div class="col-md-5" style="font-size: 0.9rem;">
+            <form method="POST">
+                {% csrf_token %}
+                
+                <!-- Customer Details -->
+                <div class="mb-3">
+                    <label for="customer_name" class="form-label">Customer Name</label>
+                    <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+                </div>
+
+                <!-- Product Selection -->
+                <div class="mb-3">
+                    <label for="product" class="form-label">Select Products</label>
+                    <select multiple class="form-control" name="product_ids" id="product_ids">
+                        {% for product in products %}
+                            <option value="{{ product.id }}" data-price="{{ product.selling_price }}">
+                                {{ product.name }} - ₦{{ product.selling_price }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Quantity Input -->
+                <div class="mb-3">
+                    <label for="quantity" class="form-label">Quantity</label>
+                    <input type="number" class="form-control" id="quantity" name="quantities" min="1" value="1">
+                </div>
+
+                <!-- Add to Cart Button -->
+                <button type="button" class="btn btn-secondary mb-3" onclick="addToCart()">Add to Cart</button>
+
+                <!-- Hidden Input for Cart Data -->
+                <input type="hidden" id="cart_data" name="cart_data">
+
+                <!-- Payment and Change Calculation -->
+                <div class="mb-3">
+                    <label for="amount_paid" class="form-label">Amount Paid</label>
+                    <input type="number" class="form-control" id="amount_paid" name="amount_paid">
+                </div>
+                <div class="mb-3">
+                    <button type="button" class="btn btn-success" onclick="calculateChange()">Calculate Change</button>
+                    <div id="change" class="mt-2" style="font-size: 0.85rem;"></div>
+                </div>
+            </form>
+        </div>
+
+        <!-- Cart Table Section -->
+        <div class="col-md-7" style="font-size: 0.9rem;">
+            <div class="cart-section">
+                <h4 class="mb-3" style="font-size: 1.2rem;">Cart</h4>
+                <table class="table table-striped table-bordered">
+                    <thead>
+                        <tr>
+                            <th>Product</th>
+                            <th>Quantity</th>
+                            <th>Selling Price (₦)</th>
+                            <th>Subtotal (₦)</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody id="cart-body">
+                        <!-- Cart Items Will Be Dynamically Added Here -->
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- Total and Checkout Section -->
+            <div class="mt-4">
+                <h5>Total: <span id="total-amount">₦0.00</span></h5>
+                <button class="btn btn-primary" onclick="checkout()">Generate Invoice</button>
+                
+                
+
+
+
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    let cart = [];
+    const cartBody = document.getElementById('cart-body');
+    const totalAmount = document.getElementById('total-amount');
+    const changeDiv = document.getElementById('change');
+    const invoiceId = "{{ invoice_id }}"; // Dynamically passed from Django template
+
+    function addToCart() {
+        const productSelect = document.getElementById('product_ids');
+        const quantityInput = document.getElementById('quantity');
+
+        const selectedProducts = Array.from(productSelect.selectedOptions);
+        const quantity = parseInt(quantityInput.value) || 1;
+
+        selectedProducts.forEach(option => {
+            const productId = option.value;
+            const productName = option.text.split(' - ₦')[0];
+            const sellingPrice = parseFloat(option.getAttribute('data-price')) || 0;
+            const discountedPrice = parseFloat(option.getAttribute('data-discounted-price')) || sellingPrice;
+
+            const existingItem = cart.find(item => item.id === productId);
+            if (existingItem) {
+                existingItem.quantity += quantity;
+            } else {
+                cart.push({
+                    id: productId,
+                    name: productName,
+                    price: discountedPrice,
+                    quantity: quantity
+                });
+            }
+        });
+
+        updateCart();
+    }
+
+    function updateCart() {
+        cartBody.innerHTML = '';
+        let total = 0;
+
+        cart.forEach((item, index) => {
+            const subtotal = item.price * item.quantity;
+            total += subtotal;
+
+            const row = `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.price.toFixed(2)}</td>
+                    <td>${subtotal.toFixed(2)}</td>
+                    <td>
+                        <button class="btn btn-warning btn-sm" onclick="editQuantity(${index})">Edit</button>
+                        <button class="btn btn-danger btn-sm" onclick="removeFromCart(${index})">Remove</button>
+
+                    </td>
+                </tr>
+            `;
+            cartBody.innerHTML += row;
+        });
+
+        totalAmount.textContent = `₦${total.toFixed(2)}`;
+        document.getElementById('cart_data').value = JSON.stringify(cart);
+    }
+
+    function removeFromCart(index) {
+        cart.splice(index, 1);
+        updateCart();
+    }
+
+    function editQuantity(index) {
+        const newQuantity = prompt('Enter new quantity:', cart[index].quantity);
+        if (newQuantity !== null) {
+            const quantity = parseInt(newQuantity);
+            if (!isNaN(quantity) && quantity > 0) {
+                cart[index].quantity = quantity;
+                updateCart();
+            } else {
+                alert('Invalid quantity entered.');
+            }
+        }
+    }
+
+    document.getElementById('amount_paid').addEventListener('input', () => {
+        calculateChange();
+    });
+
+    function calculateChange() {
+        const finalTotal = parseFloat(totalAmount.textContent.replace('₦', ''));
+        const amountPaid = parseFloat(document.getElementById('amount_paid').value);
+        const change = amountPaid - finalTotal;
+
+        if (!isNaN(change)) {
+            changeDiv.innerHTML = `Change: ₦${change.toFixed(2)}`;
+        } else {
+            changeDiv.innerHTML = 'Enter a valid amount paid.';
+        }
+    }
+
+    function removeFromCart(index) {
+    // Remove the item from the cart array
+    cart.splice(index, 1);
+
+    // Update the cart display
+    updateCart();
+}
+
+
+    function checkout() {
+        if (cart.length === 0) {
+            alert('Your cart is empty!');
+            return;
+        }
+
+        if (confirm('Do you want to generate the invoice?')) {
+            const customerName = document.getElementById('customer_name').value;
+            const amountPaid = document.getElementById('amount_paid').value;
+
+            fetch(`/billing/generate_invoice/${invoiceId}/`, { // Pass the dynamically provided invoiceId
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+                },
+                body: new URLSearchParams({
+                    'customer_name': customerName,
+                    'cart_data': JSON.stringify(cart),
+                    'amount_paid': amountPaid
+                })
+            })
+            .then(response => {
+                if (response.ok) {
+                    window.location.href = response.url;
+                } else {
+                    alert('Failed to generate invoice');
+                }
+            });
+        } else {
+            alert('Checkout canceled.');
+        }
+    }
+</script>
+
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="text-center">Edit Supplier</h2>
+    <div class="row justify-content-center">
+        <div class="col-md-6"> <!-- Center and limit width to 50% (col-md-6) -->
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group mb-3">
+                    <label for="invoice_no">Invoice No</label>
+                    <input type="text" class="form-control" id="invoice_no" name="invoice_no" value="{{ supplier.invoice_no }}" required>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="supplier_name">Supplier Name</label>
+                    <input type="text" class="form-control" id="supplier_name" name="supplier_name" value="{{ supplier.supplier_name }}" required>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="supplier_contact">Supplier Contact</label>
+                    <input type="text" class="form-control" id="supplier_contact" name="supplier_contact" value="{{ supplier.supplier_contact }}" required>
+                </div>
+
+                <div class="form-group mb-3">
+                    <label for="description">Description</label>
+                    <textarea class="form-control" id="description" name="description" rows="4">{{ supplier.description }}</textarea>
+                </div>
+
+                <div class="d-flex justify-content-between">
+                    <button type="submit" class="btn btn-primary">Save Changes</button>
+                    <a href="{% url 'store:add_supplier' %}" class="btn btn-secondary">Cancel</a>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

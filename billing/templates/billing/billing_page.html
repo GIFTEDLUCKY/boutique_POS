@@ -1,0 +1,72 @@
+{% extends 'base.html' %}
+
+{% block title %}Billing & Sales{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Billing & Sales</h3>
+    <form method="POST">
+        {% csrf_token %}
+        
+        <!-- Customer Details -->
+        <div class="mb-3">
+            <label for="customer_name" class="form-label">Customer Name</label>
+            <input type="text" class="form-control" id="customer_name" name="customer_name" required>
+        </div>
+
+        <!-- Product Selection -->
+        <div class="mb-3">
+            <label for="product" class="form-label">Select Products</label>
+            <select multiple class="form-control" name="product_ids" id="product_ids">
+                {% for product in products %}
+                    <option value="{{ product.id }}">{{ product.name }} - ${{ product.price }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Quantity Input -->
+        <div class="mb-3">
+            <label for="quantity" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="quantity" name="quantities" min="1" value="1">
+        </div>
+
+        <!-- Discount and Tax -->
+        <div class="mb-3">
+            <label for="discount" class="form-label">Discount</label>
+            <input type="number" class="form-control" id="discount" name="discount" value="0">
+        </div>
+        <div class="mb-3">
+            <label for="tax" class="form-label">Tax</label>
+            <input type="number" class="form-control" id="tax" name="tax" value="0">
+        </div>
+
+        <!-- Total Calculation -->
+        <div class="mb-3">
+            <label for="final_total" class="form-label">Final Total</label>
+            <input type="text" class="form-control" id="final_total" name="final_total" readonly>
+        </div>
+
+        <!-- Payment and Change Calculation -->
+        <div class="mb-3">
+            <label for="amount_paid" class="form-label">Amount Paid</label>
+            <input type="number" class="form-control" id="amount_paid" name="amount_paid">
+        </div>
+        <div class="mb-3">
+            <button type="button" class="btn btn-success" onclick="calculateChange()">Calculate Change</button>
+            <div id="change"></div>
+        </div>
+
+        <button type="submit" class="btn btn-primary">Generate Invoice</button>
+    </form>
+</div>
+
+<script>
+    function calculateChange() {
+        var finalTotal = parseFloat(document.getElementById("final_total").value);
+        var amountPaid = parseFloat(document.getElementById("amount_paid").value);
+        var change = amountPaid - finalTotal;
+        document.getElementById("change").innerHTML = "Change: $" + change.toFixed(2);
+    }
+</script>
+
+{% endblock %}

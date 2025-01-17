@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+{% block title %}Delete Supplier{% endblock %}
+{% block content %}
+<div class="container mt-4">
+    <h3>Confirm Delete</h3>
+    <p>Are you sure you want to delete <strong>{{ supplier.supplier_name }}</strong>?</p>
+    <form method="POST">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'store:add_supplier' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

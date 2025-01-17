@@ -1,0 +1,11 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoice Success{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Invoice Generated Successfully!</h3>
+    <p>Your transaction has been processed successfully.</p>
+    <a href="{% url 'sales_view' %}" class="btn btn-primary">Go Back to Sales</a>
+</div>
+{% endblock %}

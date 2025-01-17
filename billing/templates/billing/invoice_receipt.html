@@ -1,0 +1,63 @@
+{% extends 'base.html' %}
+
+{% block title %}Invoice Receipt{% endblock %}
+
+{% block content %}
+<div class="invoice-container">
+    <!-- Header -->
+    <div class="invoice-header">
+        <h2>{{ store_info.name }}</h2>
+        <p>{{ store_info.address }}</p>
+        <p>Contact: {{ store_info.contact }}</p>
+        <hr>
+        <p><strong>Invoice No:</strong> {{ customer_invoice.invoice_number }}</p>
+        <p><strong>Date:</strong> {{ customer_invoice.created_at|date:"d-m-Y H:i:s" }}</p>
+        <p><strong>Customer:</strong> {{ customer_invoice.customer_name }}</p>
+        <p><strong>Payment Status:</strong> Paid</p> <!-- Adjust based on your payment logic -->
+    </div>
+
+    <!-- Itemized List -->
+    <table class="invoice-details">
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Total</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in transaction_items %}
+            <tr>
+                <td>{{ item.product.name }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>N{{ item.price|floatformat:2 }}</td>
+                <td>N{{ item.subtotal|floatformat:2 }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Summary -->
+    <div class="invoice-summary">
+        <p><strong>Subtotal:</strong> N{{ subtotal|floatformat:2 }}</p>
+        <p><strong>Discount:</strong> N{{ discount|floatformat:2 }}</p>
+        <p><strong>Tax:</strong> N{{ tax|floatformat:2 }}</p>
+        <p><strong>Total:</strong> N{{ total|floatformat:2 }}</p>
+    </div>
+
+    <!-- Footer -->
+    <div class="invoice-footer">
+        <p>Thank you for your purchase!</p>
+        <p><strong>Store Address:</strong> {{ store_info.address }}</p>
+        <p><strong>Contact:</strong> {{ store_info.contact }}</p>
+    </div>
+
+    <!-- Print Button -->
+    <div class="invoice-footer">
+        <button onclick="window.print();" class="btn btn-primary">Print Invoice</button>
+    </div>
+</div>
+
+<a href="{% url 'billing:sales_view' %}" class="btn btn-secondary">Back to Cart</a>
+{% endblock %}

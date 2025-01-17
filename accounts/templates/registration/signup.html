@@ -1,0 +1,61 @@
+{% extends 'base.html' %}
+
+{% block title %}Sign Up - Multi Store POS{% endblock %}
+
+{% block content %}
+<div class="container d-flex justify-content-center align-items-center min-vh-100">
+    <div class="card p-4" style="width: 100%; max-width: 400px;">
+        <h2 class="text-center mb-4">Sign Up</h2>
+        
+        <!-- Display form errors (if any) -->
+        {% if form.errors %}
+        <div class="alert alert-danger">
+            <ul>
+                {% for field in form %}
+                    {% for error in field.errors %}
+                        <li>{{ error }}</li>
+                    {% endfor %}
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+        
+        <!-- Sign Up Form -->
+        <form method="POST">
+            {% csrf_token %}
+            
+            <div class="mb-3">
+                <label for="id_username" class="form-label">Username</label>
+                {{ form.username }} <!-- Render the field directly -->
+            </div>
+
+            <div class="mb-3">
+                <label for="id_email" class="form-label">Email</label>
+                {{ form.email }} <!-- Render the email field -->
+            </div>
+
+            <div class="mb-3">
+                <label for="id_store" class="form-label">Select Store</label>
+                {{ form.store }} <!-- Render the store field -->
+            </div>
+
+            <div class="mb-3">
+                <label for="id_password1" class="form-label">Password</label>
+                {{ form.password1 }} <!-- Render the password field -->
+            </div>
+
+            <div class="mb-3">
+                <label for="id_password2" class="form-label">Confirm Password</label>
+                {{ form.password2 }} <!-- Render the confirm password field -->
+            </div>
+
+            <button type="submit" class="btn btn-primary w-100">Sign Up</button>
+        </form>
+
+        <!-- Link to Login page -->
+        <p class="text-center mt-3">
+            Already have an account? <a href="{% url 'accounts:login' %}">Login here</a>
+        </p>
+    </div>
+</div>
+{% endblock %}

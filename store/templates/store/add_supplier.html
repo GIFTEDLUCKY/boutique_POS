@@ -1,0 +1,115 @@
+{% extends 'base.html' %}
+
+{% block title %}Manage Supplier{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row">
+        <!-- Supplier Form -->
+        <div class="col-md-4 form-container p-3 bg-light border rounded">
+            <h4 class="mb-3">Add Supplier</h4>
+            <form method="POST" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="invoice_no" class="form-label">Invoice No.</label>
+                    <input type="text" class="form-control form-control-sm" id="invoice_no" name="invoice_no" 
+                        placeholder="Enter Invoice No." value="{{ form.invoice_no.value }}" required>
+                    <div class="invalid-feedback">Invoice No is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="supplier_name" class="form-label">Supplier Name</label>
+                    <input type="text" class="form-control form-control-sm" id="supplier_name" name="supplier_name" 
+                        placeholder="Enter Supplier Name" value="{{ form.supplier_name.value }}" required>
+                    <div class="invalid-feedback">Supplier Name is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="supplier_contact" class="form-label">Supplier Contact</label>
+                    <input type="text" class="form-control form-control-sm" id="supplier_contact" name="supplier_contact" 
+                        placeholder="Enter Supplier Contact" value="{{ form.supplier_contact.value }}" required>
+                    <div class="invalid-feedback">Supplier Contact is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="description" class="form-label">Description</label>
+                    <textarea class="form-control form-control-sm" id="description" name="description" 
+                        placeholder="Enter Description">{{ form.description.value }}</textarea>
+                </div>
+                <button type="submit" class="btn btn-primary btn-sm mt-2">Add Supplier</button>
+            </form>
+        </div>
+
+        <!-- Supplier List -->
+        <div class="col-md-8 table-container">
+            <h4 class="mb-3">Supplier List</h4>
+
+            <!-- Search Form -->
+            <form method="GET" class="mb-3">
+                <div class="d-flex mb-3">
+                    <input type="text" name="search_invoice_no" class="form-control form-control-sm me-2" 
+                        placeholder="Search by Invoice No." value="{{ request.GET.search_invoice_no }}">
+                    <input type="text" name="search_supplier_name" class="form-control form-control-sm me-2" 
+                        placeholder="Search by Supplier Name" value="{{ request.GET.search_supplier_name }}">
+                    <input type="text" name="search_supplier_contact" class="form-control form-control-sm me-2" 
+                        placeholder="Search by Supplier Contact" value="{{ request.GET.search_supplier_contact }}">
+                    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+                </div>
+            </form>
+
+            <table class="table table-bordered table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>Invoice No.</th>
+                        <th>Supplier Name</th>
+                        <th>Supplier Contact</th>
+                        <th>Description</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for supplier in suppliers %}
+                    <tr>
+                        <td>{{ supplier.invoice_no }}</td>
+                        <td>{{ supplier.supplier_name }}</td>
+                        <td>{{ supplier.supplier_contact }}</td>
+                        <td>{{ supplier.description }}</td>
+                        <td>
+                            <a href="{% url 'store:edit_supplier' supplier.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'store:delete_supplier' supplier.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" class="text-center">No suppliers found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-container input,
+    .form-container textarea {
+        font-size: 0.9em;
+    }
+
+    .form-container label {
+        font-size: 0.85em;
+    }
+
+    .table-container th,
+    .table-container td {
+        font-size: 0.85em;
+    }
+
+    .btn-sm {
+        font-size: 0.8em;
+        padding: 0.25em 0.5em;
+    }
+
+    body {
+        padding-top: 60px;
+        padding-bottom: 60px;
+    }
+</style>
+{% endblock %}
