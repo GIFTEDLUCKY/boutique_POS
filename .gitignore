@@ -1,1 +1,18 @@
 node_modules
+# Ignore the virtual environment
+venv/
+
+# Ignore compiled Python files and cache
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Ignore environment variables file (important for security)
+.env
+
+# Ignore log files (if any)
+*.log
+
+# Ignore Django migration cache (optional)
+**/migrations/__pycache__/

@@ -1,0 +1,12 @@
+# Ignore the virtual environment (since Docker will install dependencies inside the container)
+venv/
+
+# Ignore Python cache files (not needed in production)
+__pycache__/
+*.pyc
+
+# Ignore database credentials and environment variables (if you use them)
+.env
+
+# Ignore any local log files (if any)
+*.log
