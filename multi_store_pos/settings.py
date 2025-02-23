@@ -11,9 +11,21 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
 
-# Build paths inside the project like this: BASE_DIR / 'subdir'.
+
+# Define BASE_DIR as a Path object
 BASE_DIR = Path(__file__).resolve().parent.parent
+
+# Now you can safely use the `/` operator to join paths
+STATIC_URL = '/static/'
+
+STATICFILES_DIRS = [
+    BASE_DIR / "static",  # Using Path object for directory joining
+]
+
+STATIC_ROOT = BASE_DIR / 'staticfiles'  # Correct use of Path
+
 
 
 # Quick-start development settings - unsuitable for production
@@ -25,7 +37,7 @@ SECRET_KEY = 'django-insecure-%vucmgr0n798bp)x5pntjq5vwz8lv-ofcpcgtvwx&c*jh2ituh
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -44,6 +56,9 @@ INSTALLED_APPS = [
     'store',
     'billing',
     'widget_tweaks',
+    'django_extensions',
+    'expenses',
+    
 ]
 
 MIDDLEWARE = [
@@ -59,11 +74,23 @@ MIDDLEWARE = [
 ROOT_URLCONF = 'multi_store_pos.urls'
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
+# settings.py for Gmail
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_PORT = 587
+EMAIL_USE_TLS = True
+EMAIL_HOST_USER = 'giftedlucky0@gmail.com'
+EMAIL_HOST_PASSWORD = '08023831575'
+
+
 
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [BASE_DIR/ 'templates'],
+        'DIRS': [BASE_DIR/ 'templates',
+                 BASE_DIR/ 'accounts/templates',
+                 
+                 ],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
@@ -129,11 +156,13 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = '/static/'
-STATICFILES_DIRS = [BASE_DIR / 'static']
 
 
 # Default primary key field type
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')

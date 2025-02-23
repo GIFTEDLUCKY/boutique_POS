@@ -1,0 +1,54 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+{% if messages %}
+    <ul class="messages">
+        {% for message in messages %}
+            <li class="{% if message.tags %}{{ message.tags }}{% endif %}">{{ message }}</li>
+        {% endfor %}
+    </ul>
+{% endif %}
+
+  <h1>Add Expenditure</h1>
+
+  <form method="POST" enctype="multipart/form-data">  <!-- ✅ Added enctype here -->
+    {% csrf_token %}
+    <div style="max-width: 600px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);">
+      {{ form.as_p }}
+      <button type="submit" style="background-color: green; color: white; padding: 10px 20px; border: none; border-radius: 5px; cursor: pointer;">Add Expenditure</button>
+    </div>
+  </form>
+
+  <br>
+  <div style="text-align: center;">
+    <a href="{% url 'expenses:expense_list' %}" style="background-color: blue; color: white; padding: 10px; text-decoration: none; border-radius: 5px;">Go to Expense List</a>
+  </div>
+
+  <style>
+    /* Reduce height of the textarea */
+    textarea {
+      height: 100px;  /* You can adjust the value as needed */
+    }
+
+    /* Style the form's buttons */
+    button, a {
+      display: inline-block;
+      margin-top: 10px;
+      padding: 12px 20px;
+      font-size: 14px;
+      text-align: center;
+      border-radius: 5px;
+      text-decoration: none;
+    }
+
+    /* Optional: Customize form inputs */
+    input, select, textarea {
+      width: 100%;
+      padding: 10px;
+      margin: 5px 0;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+  </style>
+{% endblock %}

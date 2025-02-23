@@ -3,61 +3,240 @@
 {% block title %}Invoice Receipt{% endblock %}
 
 {% block content %}
-<div class="invoice-container">
-    <!-- Header -->
-    <div class="invoice-header">
-        <h2>{{ store_info.name }}</h2>
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Invoice Receipt</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .invoice-container {
+            width: 85mm; /* Adjust to 58mm or 80mm based on your printer size */
+            margin: 0 auto;
+            padding: 10px;
+            border: 0.2px solid black;
+            font-size: 12px; /* Smaller font size suitable for receipts */
+        }
+
+        h2, h3 {
+            font-size: 14px;
+            text-align: center;
+            margin: 2px 0;
+        }
+
+        p {
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            border: 0.2px solid black;
+        }
+
+        table, th, td {
+            
+            font-size: 10px;
+            text-align: left;
+            border: 0.3px solid black;
+            text-align: center;
+        }
+
+        th, td {
+            padding: 5px;
+        }
+
+        .total {
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .invoice-container {
+                margin: 0 auto;
+                width: 85mm; /* Ensure correct width for receipt roll paper */
+                page-break-after: auto; /* Ensures receipt prints as one page */
+            }
+
+            .btn-secondary, #print-button, #cancel-button {
+                display: none; /* Hide buttons on print */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <h2>GLIMS Inventory {{ store_info.store_name }}</h2>
         <p>{{ store_info.address }}</p>
-        <p>Contact: {{ store_info.contact }}</p>
+        <p>"Bringing your store to your hand " {{ store_info.contact }}</p>
+
         <hr>
-        <p><strong>Invoice No:</strong> {{ customer_invoice.invoice_number }}</p>
-        <p><strong>Date:</strong> {{ customer_invoice.created_at|date:"d-m-Y H:i:s" }}</p>
-        <p><strong>Customer:</strong> {{ customer_invoice.customer_name }}</p>
-        <p><strong>Payment Status:</strong> Paid</p> <!-- Adjust based on your payment logic -->
-    </div>
 
-    <!-- Itemized List -->
-    <table class="invoice-details">
-        <thead>
+        <h3>Invoice Details</h3>
+        <p><strong>Invoice ID:</strong> {{ cart_items.first.cart_id }}</p>
+        <p><strong>Cashier:</strong> {{ user.username }}</p>
+        <p><strong>Location:</strong> {{ store_info.name }}</p>
+        
+        <p><strong>Customer Name:</strong> {{ transaction.customer_name }}</p>
+        <p><strong>Payment Method:</strong> {{ transaction.payment_method }}</p>
+
+        <p><strong>Date:</strong> {{ customer_invoice.created_at|date:"d-m-Y H:i" }}</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>S/No</th> <!-- Serial Number Column -->
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Sub</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                <tr>
+                    <td>{{ forloop.counter }}</td> <!-- Serial number using forloop.counter -->
+                    <td>{{ item.product.name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>{{ item.price }}</td>
+                    <td>{{ item.subtotal }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="5">No items found</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <hr>
+
+        <table>
             <tr>
-                <th>Product</th>
-                <th>Quantity</th>
-                <th>Price</th>
-                <th>Total</th>
+                <td>Subtotal:</td>
+                <td>GH₵{{ subtotal }}</td>
             </tr>
-        </thead>
-        <tbody>
-            {% for item in transaction_items %}
             <tr>
-                <td>{{ item.product.name }}</td>
-                <td>{{ item.quantity }}</td>
-                <td>N{{ item.price|floatformat:2 }}</td>
-                <td>N{{ item.subtotal|floatformat:2 }}</td>
+                <td>Discount:</td>
+                <td>GH₵{{ discount }}</td>
             </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+            <tr>
+                <td>Tax:</td>
+                <td>GH₵{{ tax }}</td>
+            </tr>
+            <tr class="total">
+                <td>Total:</td>
+                <td>GH₵{{ total }}</td>
+            </tr>
+        </table>
+        
 
-    <!-- Summary -->
-    <div class="invoice-summary">
-        <p><strong>Subtotal:</strong> N{{ subtotal|floatformat:2 }}</p>
-        <p><strong>Discount:</strong> N{{ discount|floatformat:2 }}</p>
-        <p><strong>Tax:</strong> N{{ tax|floatformat:2 }}</p>
-        <p><strong>Total:</strong> N{{ total|floatformat:2 }}</p>
-    </div>
-
-    <!-- Footer -->
-    <div class="invoice-footer">
         <p>Thank you for your purchase!</p>
-        <p><strong>Store Address:</strong> {{ store_info.address }}</p>
-        <p><strong>Contact:</strong> {{ store_info.contact }}</p>
+        <p>Store Address: {{ store_info.location }}</p>
+        <p>Contact: {{ store_info.manager_name }}</p>
+
+        <div style="text-align: center; margin-top: 20px;">
+            <img src="/media/barcode_1.png" alt="Invoice Barcode">
+
+        </div>
+        
     </div>
 
-    <!-- Print Button -->
+    <!-- Buttons -->
     <div class="invoice-footer">
-        <button onclick="window.print();" class="btn btn-primary">Print Invoice</button>
+        <button id="print-button" class="btn btn-primary">Print Invoice</button>
+        
+        <button id="cancel-button" class="btn btn-danger">Cancel Invoice</button>
     </div>
-</div>
 
-<a href="{% url 'billing:sales_view' %}" class="btn btn-secondary">Back to Cart</a>
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+         // Print Button
+         document.getElementById("print-button").addEventListener("click", function () {
+             window.print();
+             clearCartAndRedirect("{% url 'billing:sales_view' %}");
+         });
+     
+         // Cancel Button
+         document.getElementById("cancel-button").addEventListener("click", function () {
+             clearCartAndRedirect("{% url 'billing:sales_view' %}");
+         });
+     
+         // Handle sales, dashboard, and re-print bill links
+         let salesLink = document.getElementById("salesLink");
+         let dashboardLink = document.getElementById("dashboardLink");
+         let rePrintBillLink = document.getElementById("rePrintBillLink");
+     
+         function clearCartAndRedirect(targetUrl) {
+             console.log("Clearing cart...");  // Debugging log
+             fetch("{% url 'billing:clear_cart' %}", {
+                 method: "POST",
+                 headers: {
+                     "X-CSRFToken": "{{ csrf_token }}",
+                     "Content-Type": "application/json",
+                 },
+             })
+             .then(response => response.json())
+             .then(data => {
+                 if (data.status === "success") {
+                     console.log("Cart cleared successfully. Redirecting to:", targetUrl);
+                     window.location.href = targetUrl;
+                 } else {
+                     console.error("Failed to clear the cart.");
+                 }
+             })
+             .catch(error => console.error("Error:", error));
+         }
+     
+         if (salesLink) {
+             salesLink.addEventListener("click", function (e) {
+                 e.preventDefault();
+                 console.log("Sales link clicked.");
+                 clearCartAndRedirect("{% url 'billing:sales_view' %}");
+             });
+         }
+     
+         if (dashboardLink) {
+             dashboardLink.addEventListener("click", function (e) {
+                 e.preventDefault();
+                 console.log("Dashboard link clicked.");
+                 clearCartAndRedirect("{% url 'dashboard:index' %}");
+             });
+         }
+     
+         if (rePrintBillLink) {
+             rePrintBillLink.addEventListener("click", function (e) {
+                 e.preventDefault();
+                 console.log("Re-Print Bill link clicked.");
+                 clearCartAndRedirect("{% url 'billing:transaction_search' %}");
+             });
+         }
+     
+         // Prevent undesired back button behavior after generating an invoice
+         function handleBackButton() {
+             console.log("Back button detected, clearing cart...");
+             clearCartAndRedirect("{% url 'billing:sales_view' %}");
+         }
+     
+         window.addEventListener('popstate', function(event) {
+             handleBackButton();
+         });
+     
+         window.history.pushState(null, "", window.location.href);
+     });
+     </script>
+          
+</body>
+</html>
 {% endblock %}

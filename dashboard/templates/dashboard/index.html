@@ -1,27 +1,44 @@
 {% extends 'base.html' %}
 
-{% block title %}Login - Multi Store POS{% endblock %}
-
 {% block content %}
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Dashboard</title>
-</head>
-<body>
-    <h1>Welcome to the Dashboard!</h1>
-    <p>You have successfully logged in.</p>
 
-    <ul>
-        {% for store in stores %}
-        <li>
-            <a href="{% url 'store:store_product_list' store.id %}">{{ store.name }}</a>
-        </li>
-        {% endfor %}
-    </ul>
+{% load static %}
+<!-- Main container -->
+<div class="container-fluid">
+    <!-- Page title -->
+    <div class="row">
+        <div class="col text-center">
+            <h1 style="color: #452a2a;" class=" mt-4">Welcome to the GLIMS Multi-Store</h1>
+            <p class="lead">Manage your stores and transactions from a single dashboard.</p>
+        </div>
+    </div>
+
+
+    <div class="row mt-2">
+        <div class="col-md-4 mt-4">
+            <img src="{% static 'images/store1.jpg' %}" class="img-fluid rounded shadow-sm" alt="Store 1" style="width: 400px; height: 350px; object-fit: cover;">
+            
+        </div>
+        <div class="col-md-4 mt-4">
+            <img src="{% static 'images/store2.jpg' %}" class="img-fluid rounded shadow-sm" alt="Store 2" style="width: 400px; height: 350px; object-fit: cover;">
+            
+        </div>
+        <div class="col-md-4 mt-4">
+            <img src="{% static 'images/store3.jpg' %}" class="img-fluid rounded shadow-sm" alt="Store 3" style="width: 400px; height: 350px; object-fit: cover;">
+            
+        </div>
+    </div>
+
+    <div class="mb-4 mt-4">
+        <a href="{% url 'store:product_list' %}" class="btn btn-secondary btn-block">
+        Products - List
+        </a>
+    </div>
     
-</body>
-</html>
+
+    
+
+
+
+
 {% endblock %}

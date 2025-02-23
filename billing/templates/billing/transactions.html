@@ -1,31 +1,171 @@
 {% extends 'base.html' %}
 
+{% load static %}
+
 {% block content %}
-<h2>Transactions for {{ request.user.store.name }}</h2>
-<table>
-    <thead>
-        <tr>
-            <th>Invoice Number</th>
-            <th>Date</th>
-            <th>Total Amount</th>
-            <th>Discount</th>
-            <th>Final Total</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for transaction in transactions %}
-        <tr>
-            <td>{{ transaction.invoice_number }}</td>
-            <td>{{ transaction.date }}</td>
-            <td>{{ transaction.total_amount }}</td>
-            <td>{{ transaction.discount }}</td>
-            <td>{{ transaction.final_total }}</td>
-        </tr>
-        {% empty %}
-        <tr>
-            <td colspan="5">No transactions found for this store.</td>
-        </tr>
+
+{% if messages %}
+    <div class="alert-container">
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }}">
+                {{ message }}
+            </div>
         {% endfor %}
-    </tbody>
-</table>
+    </div>
+{% endif %}
+
+<div class="container mx-auto my-4">
+    <form id="filterForm">
+        <div class="flex items-center gap-2">
+            <label for="start_date" class="text-sm font-medium">Start Date:</label>
+            <input type="date" id="startDate" name="startDate" class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-gray-400" />
+
+            <label for="end_date" class="text-sm font-medium">End Date:</label>
+            <input type="date" id="endDate" name="endDate" class="border border-gray-300 rounded-lg p-2 focus:ring-2 focus:ring-gray-400" />
+
+            <button type="button" id="filterButton" class="btn btn-warning">Filter by Date Range</button>
+        </div>
+    </form>
+
+    <div class="mt-2">
+        <button id="resetButton" data-url="{% url 'billing:all_transactions' %}" class="btn btn-danger">Reset</button>
+
+        <button id="exportButton" class="btn btn-info">Export to Excel</button>
+    </div>
+
+    <div class="flex flex-wrap gap-8 items-center mb-6 mt-4">
+        <select id="filter_field" class="border border-gray-300 rounded-lg p-2 w-64 focus:ring-2 focus:ring-blue-400">
+            <option value="cashier_name">Cashier</option>
+            <option value="invoice_number">Invoice Number</option>
+            <option value="customer_name">Customer Name</option>
+            <option value="payment_method">Payment Method</option>
+            <option value="store">Store</option>
+        </select>
+        <input type="text" id="filter_value" class="border border-gray-300 rounded-lg p-2 w-64 focus:ring-2 focus:ring-blue-400" placeholder="Enter value here">
+        <button class="btn btn-success" onclick="filterTransactions()">Search</button>
+    </div>
+
+    <div class="flex gap-4 mb-6">
+        <div style="display: flex; justify-content: flex-end; padding: 10px;">
+            <h2 id="total_sales">Total Sales: {{ total_sales }}</h2>
+        </div>
+        <h2>Transaction Invoice Details</h2>
+    </div>
+
+    <div id="transactionTableContainer" class="overflow-x-auto">
+        <table id="transactionTable" class="table-auto w-full border-collapse border border-gray-300" style="font-size: 13px;">
+            <thead>
+                <tr class="bg-gray-200 text-left">
+                    <th class="border px-4 py-2">Cashier</th>
+                    <th class="border px-4 py-2">Invoice Number</th>
+                    <th class="border px-4 py-2">Customer Name</th>
+                    <th class="border px-4 py-2">Payment Method</th>
+                    <th class="border px-4 py-2">Product</th>
+                    <th class="border px-4 py-2">Store</th>
+                    <th class="border px-4 py-2">Quantity</th>
+                    <th class="border px-4 py-2">Price</th>
+                    <th class="border px-4 py-2">Discount</th>
+                    <th class="border px-4 py-2">Tax</th>
+                    <th class="border px-4 py-2">Subtotal</th>
+                    <th class="border px-4 py-2">Adjusted Final Price</th>
+                    <th class="border px-4 py-2">Date</th>
+                </tr>
+            </thead>
+            <tbody id="transactionTableBody">
+                {% for transaction in transactions %}
+                <tr class="even:bg-gray-100">
+                    <td class="border px-4 py-2">{{ transaction.user.username }}</td>
+                    <td class="border px-4 py-2">{{ transaction.cart_id }}</td>
+                    <td class="border px-4 py-2">{{ transaction.customer_name }}</td>
+                    <td class="border px-4 py-2">{{ transaction.payment_method }}</td>
+                    <td class="border px-4 py-2">{{ transaction.product.name }}</td>
+                    <td class="border px-4 py-2">{{ transaction.store.name }}</td>
+                    <td class="border px-4 py-2">{{ transaction.quantity }}</td>
+                    <td class="border px-4 py-2">{{ transaction.price }}</td>
+                    <td class="border px-4 py-2">{{ transaction.discount }}</td>
+                    <td class="border px-4 py-2">{{ transaction.tax }}</td>
+                    <td class="border px-4 py-2">{{ transaction.subtotal }}</td>
+                    <td class="border px-4 py-2">{{ transaction.adjusted_final_price }}</td>
+                    <td class="border px-4 py-2">{{ transaction.created_at|date:"d-m-Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+
+
+<div class="d-flex justify-content-center align-items-center mt-3">
+    {% if transactions.has_previous %}
+        <a href="?page=1" class="btn btn-sm btn-outline-primary mx-1">First</a>
+        <a href="?page={{ transactions.previous_page_number }}" class="btn btn-sm btn-outline-primary mx-1">Previous</a>
+    {% endif %}
+
+    <span class="px-3 py-1 border rounded bg-light fw-bold">
+        Page {{ transactions.number }} of {{ transactions.paginator.num_pages }}
+    </span>
+
+    {% if transactions.has_next %}
+        <a href="?page={{ transactions.next_page_number }}" class="btn btn-sm btn-outline-primary mx-1">Next</a>
+        <a href="?page={{ transactions.paginator.num_pages }}" class="btn btn-sm btn-outline-primary mx-1">Last</a>
+    {% endif %}
+</div>
+
+
+
+
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="{% static 'js/script.js' %}"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.17.1/xlsx.full.min.js"></script>
+
+<script>
+    $('#filterButton').on('click', function() {
+        const filterField = $('#filter_field').val();
+        const filterValue = $('#filter_value').val();
+        const startDate = $('#startDate').val();
+        const endDate = $('#endDate').val();
+
+        $.ajax({
+            url: '{% url "billing:filter_transactions" %}',
+            data: {
+                'filter_field': filterField,
+                'filter_value': filterValue,
+                'start_date': startDate,
+                'end_date': endDate,
+            },
+            success: function(response) {
+                let rows = '';
+                response.transactions.forEach(function(transaction) {
+                    rows += `
+                        <tr>
+                            <td>${transaction.cashier}</td>
+                            <td>${transaction.cart_id}</td>
+                            <td>${transaction.customer_name}</td>
+                            <td>${transaction.payment_method}</td>
+                            <td>${transaction.product_name}</td>
+                            <td>${transaction.store_name}</td>
+                            <td>${transaction.quantity}</td>
+                            <td>${transaction.price}</td>
+                            <td>${transaction.discount}</td>
+                            <td>${transaction.tax}</td>
+                            <td>${transaction.subtotal}</td>
+                            <td>${transaction.adjusted_final_price}</td>
+                            <td>${transaction.created_at}</td>
+                        </tr>
+                    `;
+                });
+                $('#transactionTableBody').html(rows);
+            }
+        });
+    });
+
+
+    function resetSearch() {
+        $('#filter_value').val('');
+        $('#startDate').val('');
+        $('#endDate').val('');
+        $('#filter_field').val('invoice_number'); // Reset to default filter option
+    }
+
+</script>
 {% endblock %}

@@ -1,0 +1,162 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Expenditure List</h1>
+
+  <!-- Filter & Total Expenses Row -->
+  <div class="row mb-3">
+    <div class="col-md-8">
+      <div class="row g-2">
+        <div class="col-6 col-md-3">
+          <label for="startDate">Start Date:</label>
+          <input type="date" id="startDate" class="form-control">
+        </div>
+        <div class="col-6 col-md-3">
+          <label for="endDate">End Date:</label>
+          <input type="date" id="endDate" class="form-control">
+        </div>
+        <div class="col-12 col-md-6 d-flex align-items-end">
+          <button class="btn btn-primary me-2 w-100" onclick="filterTable()">Filter</button>
+          <button class="btn btn-secondary w-100" onclick="resetFilter()">Reset</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Total Expenses -->
+    <div class="col-md-4 text-md-end mt-3 mt-md-0">
+      <div class="alert alert-info">
+        <strong>Total Expenses:</strong> GH₵ <span id="totalExpenses">{{ total_expenses|floatformat:2 }}</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Additional Filters -->
+  <div class="row g-2 mb-3">
+    <div class="col-md-3">
+      <select id="filterCategory" class="form-control">
+        <option value="store">Store</option>
+        <option value="description">Description</option>
+        <option value="payment_method">Payment Method</option>
+        <option value="added_by">Added By</option>
+      </select>
+    </div>
+    <div class="col-md-6">
+      <input type="text" id="filterInput" class="form-control" placeholder="Enter search term">
+    </div>
+    <div class="col-md-3 d-flex">
+      <button class="btn btn-primary w-100" onclick="filterByCategory()">Search</button>
+    </div>
+  </div>
+
+  <!-- Add Expenditure Button -->
+  <a href="{% url 'expenses:add_expenditure' %}" class="btn btn-success mb-3">Add Expenditure</a>
+
+  <!-- Scrollable Table -->
+  <div class="table-responsive">
+    <table class="table table-bordered table-striped">
+      <thead class="thead-dark">
+        <tr>
+          <th>S/No.</th>
+          <th>Store</th>
+          <th>Amount Spent</th>
+          <th>Description</th>
+          <th>Payment Method</th>
+          <th>Date Added</th>
+          <th>Added By</th>
+          <th>Receipt</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="expenditureTable">
+        {% for expenditure in expenditures %}
+          <tr>
+            <td>{{ forloop.counter }}</td>
+            <td data-category="store">{{ expenditure.store.name }}</td>
+            <td>{{ expenditure.amount }}</td>
+            <td data-category="description">{{ expenditure.description }}</td>
+            <td data-category="payment_method">{{ expenditure.payment_method }}</td>
+            <td data-date="{{ expenditure.date_added|date:'Y-m-d' }}">{{ expenditure.date_added|date:"d-m-y" }}</td>
+            <td data-category="added_by">{{ expenditure.added_by.username }}</td>
+            <td>
+              {% if expenditure.receipt_attachment %}
+                <a href="{{ expenditure.receipt_attachment.url }}" target="_blank" class="btn btn-primary btn-sm">View</a>
+                <a href="{{ expenditure.receipt_attachment.url }}" download class="btn btn-success btn-sm">Download</a>
+              {% else %}
+                <a href="{% url 'expenses:view_expenditure_receipt' expenditure.id %}" target="_blank" class="btn btn-primary btn-sm">View</a>
+                <a href="{% url 'expenses:download_expenditure_receipt' expenditure.id %}" download class="btn btn-success btn-sm">Download</a>
+              {% endif %}
+            </td>
+            <td>
+              <a href="{% url 'expenses:edit_expenditure' expenditure.id %}" class="btn btn-warning btn-sm">Edit</a>
+              <a href="{% url 'expenses:delete_expenditure' expenditure.id %}" class="btn btn-danger btn-sm" onclick="return confirm('Are you sure you want to delete this expenditure?');">Delete</a>
+            </td>
+          </tr>
+        {% empty %}
+          <tr>
+            <td colspan="9" class="text-center">No expenditures recorded.</td>
+          </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <script>
+    function filterTable() {
+      let startDate = document.getElementById("startDate").value;
+      let endDate = document.getElementById("endDate").value;
+
+      let start = startDate ? new Date(startDate) : null;
+      let end = endDate ? new Date(endDate) : null;
+      let totalExpenses = 0;
+
+      let rows = document.querySelectorAll("#expenditureTable tr");
+
+      for (let row of rows) {
+        let dateCell = row.querySelector("td[data-date]");
+        if (dateCell) {
+          let rowDate = new Date(dateCell.getAttribute("data-date"));
+          let showRow = (!start || rowDate >= start) && (!end || rowDate <= end);
+
+          row.style.display = showRow ? "" : "none";
+          if (showRow) {
+            totalExpenses += parseFloat(row.cells[2].textContent) || 0;
+          }
+        }
+      }
+
+      document.getElementById("totalExpenses").textContent = totalExpenses.toFixed(2);
+    }
+
+    function filterByCategory() {
+      let filterCategory = document.getElementById("filterCategory").value;
+      let filterInput = document.getElementById("filterInput").value.toLowerCase();
+      let totalExpenses = 0;
+
+      let rows = document.querySelectorAll("#expenditureTable tr");
+
+      for (let row of rows) {
+        let cell = row.querySelector(`td[data-category="${filterCategory}"]`);
+        if (cell) {
+          let text = cell.textContent.toLowerCase();
+          let showRow = text.includes(filterInput);
+
+          row.style.display = showRow ? "" : "none";
+          if (showRow) {
+            totalExpenses += parseFloat(row.cells[2].textContent) || 0;
+          }
+        }
+      }
+
+      document.getElementById("totalExpenses").textContent = totalExpenses.toFixed(2);
+    }
+
+    function resetFilter() {
+      document.getElementById("startDate").value = "";
+      document.getElementById("endDate").value = "";
+      document.getElementById("filterInput").value = "";
+      document.querySelectorAll("#expenditureTable tr").forEach(row => row.style.display = "");
+      filterTable();
+    }
+  </script>
+
+{% endblock %}

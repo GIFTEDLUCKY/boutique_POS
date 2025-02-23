@@ -1,12 +1,102 @@
 {% extends 'base.html' %}
 
+{% block title %}Add Staff{% endblock %}
+
 {% block content %}
-<h2>Add Staff</h2>
+<div class="container mt-4">
+    <div class="row">
+        <!-- Add Staff Form -->
+        <div class="col-md-4 form-container p-3 bg-light border rounded">
+            <h4 class="mb-3">Add Staff</h4>
+            <form method="POST" class="needs-validation" novalidate>
+                {% csrf_token %}
+                <div class="mb-3">
+                    <label for="user" class="form-label">User</label>
+                    {{ form.user }}
+                </div>
+                <div class="mb-3">
+                    <label for="store" class="form-label">Store</label>
+                    {{ form.store }}
+                </div>
+                <div class="mb-3">
+                    <label for="role" class="form-label">Role</label>
+                    {{ form.role }}
+                </div>
+                <button type="submit" class="btn btn-success btn-sm mt-2">Add Staff</button>
+            </form>
+        </div>
 
-<form method="POST">
-    {% csrf_token %}
-    {{ form.as_p }}
-    <button type="submit" class="btn btn-primary">Add Staff</button>
-</form>
+        <!-- Staff List -->
+        <div class="col-md-8 table-container">
+            <h4 class="mb-3">Staff List</h4>
 
+            <!-- Search Form -->
+            <form method="GET" class="mb-3">
+                <div class="d-flex mb-3">
+                    <input type="text" name="search_username" class="form-control form-control-sm me-2" 
+                        placeholder="Search by Username" value="{{ request.GET.search_username }}">
+                    <input type="text" name="search_store" class="form-control form-control-sm me-2" 
+                        placeholder="Search by Store" value="{{ request.GET.search_store }}">
+                    <input type="text" name="search_role" class="form-control form-control-sm me-2" 
+                        placeholder="Search by Role" value="{{ request.GET.search_role }}">
+                    <button type="submit" class="btn btn-success btn-sm">Search</button>
+                </div>
+            </form>
+            
+            <table class="table table-bordered table-sm table-hover">
+                <thead class="table-light">
+                    <tr>
+                        <th>User</th>
+                        <th>Store</th>
+                        <th>Role</th>
+                        <th>Actions</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for staff in staff_list %}
+                    <tr>
+                        <td>{{ staff.user.username }}</td>
+                        <td>{{ staff.store.name }}</td>
+                        <td>{{ staff.role }}</td>
+                        <td>
+                            <a href="{% url 'store:edit_staff' staff.id %}" class="btn btn-warning btn-sm">Edit</a>
+                            <a href="{% url 'store:delete_staff' staff.id %}" class="btn btn-danger btn-sm">Delete</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center">No staff found.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<style>
+    .form-container input,
+    .form-container select {
+        font-size: 0.9em;
+    }
+
+    .form-container label {
+        font-size: 0.85em;
+    }
+
+    .table-container th,
+    .table-container td {
+        font-size: 0.85em;
+    }
+
+    .btn-sm {
+        font-size: 0.8em;
+        padding: 0.25em 0.5em;
+    }
+
+    body {
+        padding-top: 0px;
+        padding-bottom: 0px;
+    }
+</style>
 {% endblock %}

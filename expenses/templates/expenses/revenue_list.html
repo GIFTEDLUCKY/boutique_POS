@@ -1,0 +1,126 @@
+{% extends 'base.html' %}
+
+{% block content %}
+  <h1>Revenue List</h1>
+  
+  <h4>Total Revenue: GH₵ <span id="totalRevenue">{{ total_revenue }}</span></h4>
+
+  <div style="margin-bottom: 15px;">
+    <label for="start_date">Start Date:</label>
+    <input type="date" id="start_date">
+    
+    <label for="end_date">End Date:</label>
+    <input type="date" id="end_date">
+    
+    <label for="filter_criteria">Filter By:</label>
+    <select id="filter_criteria">
+      <option value="store">Store</option>
+      <option value="description">Description</option>
+      <option value="payment_method">Payment Method</option>
+      <option value="added_by">Added By</option>
+    </select>
+
+    <input type="text" id="search_input" placeholder="Enter search term">
+
+    <button onclick="filterTable()" class="btn btn-success">Search</button>
+    <button onclick="resetFilters()" class="btn btn-danger">Reset</button>
+  </div>
+
+  <table style="width: 100%; border-collapse: collapse; text-align: left; border: 1px solid black;" id="revenueTable">
+    <thead>
+      <tr>
+        <th style="border: 1px solid black; padding: 8px;">S/No.</th>
+        <th style="border: 1px solid black; padding: 8px;">Store</th>
+        <th style="border: 1px solid black; padding: 8px;">Amount Added</th>
+        <th style="border: 1px solid black; padding: 8px;">Description</th>
+        <th style="border: 1px solid black; padding: 8px;">Payment Method</th>
+        <th style="border: 1px solid black; padding: 8px;">Date Added</th>
+        <th style="border: 1px solid black; padding: 8px;">Added By</th>
+        <th style="border: 1px solid black; padding: 8px;">Receipt</th>
+        <th style="border: 1px solid black; padding: 8px;">Action</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for revenue in revenues %}
+        <tr>
+          <td style="border: 1px solid black; padding: 8px;">{{ forloop.counter }}</td>
+          <td style="border: 1px solid black; padding: 8px;" class="store">{{ revenue.store.name }}</td>
+          <td style="border: 1px solid black; padding: 8px;" class="amount">{{ revenue.amount }}</td>
+          <td style="border: 1px solid black; padding: 8px;" class="description">{{ revenue.description }}</td>
+          <td style="border: 1px solid black; padding: 8px;" class="payment_method">{{ revenue.payment_method }}</td>
+          <td style="border: 1px solid black; padding: 8px;" class="date_added">{{ revenue.date_added }}</td>
+          <td style="border: 1px solid black; padding: 8px;" class="added_by">{{ revenue.added_by.username }}</td>
+          <td style="border: 1px solid black; padding: 8px;">
+            <a href="{% url 'expenses:view_receipt' revenue.id %}" target="_blank" class="btn btn-primary btn-sm">View</a> | 
+            <a href="{% url 'expenses:download_receipt' revenue.id %}" download class="btn btn-success btn-sm">Download</a>
+          </td>
+          <td style="border: 1px solid black; padding: 8px;">
+            <a href="{% url 'expenses:edit_revenue' revenue.id %}" class="btn btn-warning">Edit</a>
+            <a href="{% url 'expenses:delete_revenue' revenue.id %}" class="btn btn-danger" onclick="return confirm('Are you sure you want to delete this revenue?');">Delete</a>
+          </td>
+        </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <script>
+function filterTable() {
+    let startDate = document.getElementById("start_date").value;
+    let endDate = document.getElementById("end_date").value;
+    let filterCriteria = document.getElementById("filter_criteria").value;
+    let searchTerm = document.getElementById("search_input").value.toLowerCase();
+    
+    let table = document.getElementById("revenueTable");
+    let rows = table.getElementsByTagName("tr");
+    let totalRevenue = 0;
+
+    for (let i = 1; i < rows.length; i++) {
+        let row = rows[i];
+        let filterText = row.querySelector(`.${filterCriteria}`)?.innerText.toLowerCase();
+        let dateAdded = row.querySelector(".date_added")?.innerText;
+        let amount = parseFloat(row.querySelector(".amount")?.innerText) || 0;
+
+        let matchesSearch = filterText.includes(searchTerm);
+        let matchesDate = true;
+
+        if (startDate && endDate) {
+            let rowDate = new Date(dateAdded.split("-").reverse().join("-"));
+            let start = new Date(startDate);
+            let end = new Date(endDate);
+
+            // Normalize dates to midnight (to prevent time comparison issues)
+            start.setHours(0, 0, 0, 0);
+            end.setHours(23, 59, 59, 999);
+            rowDate.setHours(0, 0, 0, 0);
+
+            matchesDate = rowDate.getTime() >= start.getTime() && rowDate.getTime() <= end.getTime();
+        }
+
+        if (matchesSearch && matchesDate) {
+            row.style.display = "";
+            totalRevenue += amount;
+        } else {
+            row.style.display = "none";
+        }
+    }
+
+    document.getElementById("totalRevenue").innerText = "GH₵ " + totalRevenue.toFixed(2);
+}
+
+
+
+    function resetFilters() {
+        document.getElementById("start_date").value = "";
+        document.getElementById("end_date").value = "";
+        document.getElementById("search_input").value = "";
+        document.getElementById("totalRevenue").innerText = "GH₵ {{ total_revenue }}";
+
+        let table = document.getElementById("revenueTable");
+        let rows = table.getElementsByTagName("tr");
+        for (let i = 1; i < rows.length; i++) {
+            rows[i].style.display = "";
+        }
+    }
+  </script>
+
+{% endblock %}

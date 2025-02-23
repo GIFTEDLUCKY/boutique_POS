@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Checkout</h1>
+<form id="checkout-form">
+    <label for="customer_name">Customer Name:</label>
+    <input type="text" id="customer_name" name="customer_name" required>
+    
+    <label for="amount_paid">Amount Paid:</label>
+    <input type="number" id="amount_paid" name="amount_paid" required>
+    
+    <h3>Cart Items</h3>
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody id="cart-items">
+            <!-- Cart items will be dynamically populated -->
+        </tbody>
+    </table>
+    
+    <h3>Total: <span id="total-amount">0.00</span></h3>
+    <button type="button" onclick="checkout()">Checkout</button>
+</form>
+
+<script>
+    let cart = [];
+
+    // Fetch cart data from the backend
+    fetch('/billing/get_cart/')  // Add a view to fetch cart items
+        .then(response => response.json())
+        .then(data => {
+            cart = data.cart_items;
+            updateCartTable();
+        });
+
+    function updateCartTable() {
+        const tbody = document.getElementById('cart-items');
+        tbody.innerHTML = '';
+        let total = 0;
+
+        cart.forEach(item => {
+            total += item.product.price * item.quantity;
+
+            tbody.innerHTML += `
+                <tr>
+                    <td>${item.product.name}</td>
+                    <td>${item.quantity}</td>
+                    <td>${item.product.price}</td>
+                    <td>${item.product.price * item.quantity}</td>
+                </tr>
+            `;
+        });
+
+        document.getElementById('total-amount').textContent = total.toFixed(2);
+    }
+
+    function checkout() {
+        const customerName = document.getElementById('customer_name').value;
+        const amountPaid = document.getElementById('amount_paid').value;
+
+        if (cart.length === 0) {
+            alert('Your cart is empty!');
+            return;
+        }
+
+        fetch('/billing/checkout/', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
+            },
+            body: JSON.stringify({
+                customer_name: customerName,
+                amount_paid: amountPaid,
+                cart_data: cart
+            })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.success) {
+                alert('Invoice generated successfully!');
+                window.location.href = `/billing/invoice/${data.invoice_id}/`;
+            } else {
+                alert(data.message || 'Failed to generate invoice.');
+            }
+        });
+    }
+</script>
+{% endblock %}

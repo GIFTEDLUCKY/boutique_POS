@@ -6,30 +6,41 @@ from django.contrib.auth import authenticate, login, logout
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib import messages
 from .models import CustomUser, UserProfile
+from .models import UserProfile  
+from .utils import generate_new_cart_id
 
 
+
+from django.shortcuts import render, redirect
+from django.contrib import messages
+from django.contrib.auth.models import User
+from .forms import UserRegistrationForm
+
+
+
+from django.contrib.auth import get_user_model
+from .models import UserProfile
 
 def register(request):
     if request.method == 'POST':
         form = UserRegistrationForm(request.POST)
         if form.is_valid():
-            user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
-            # Assign the selected store to the user
-            user.store = form.cleaned_data['store']
-            user.save()
-            messages.success(request, "Your account has been created successfully. Please log in.")
-            return redirect('login')  # Redirect to login page after successful registration
+            user = form.save()  # Save the user first
+            UserProfile.objects.create(user=user)  # Create a UserProfile for the user
+            messages.success(request, 'Registration successful! Please log in.')
+            return redirect('accounts:login')
+        else:
+            messages.error(request, 'Registration failed, please correct the errors below.')
     else:
         form = UserRegistrationForm()
 
-    return render(request, 'registration/signup.html', {'form': form})
+    return render(request, 'accounts/register.html', {'form': form})
 
 
-# Login view
-from django.shortcuts import redirect
+# accounts/views.py
+from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login
-from django.contrib.auth.decorators import login_required
+from .models import UserProfile
 
 def user_login(request):
     if request.method == 'POST':
@@ -42,16 +53,25 @@ def user_login(request):
             if user is not None:
                 login(request, user)
 
-                # Redirect based on role
-                role = user.userprofile.role  # Assuming 'role' is in the UserProfile model
-                if role == 'admin':
-                    return redirect('dashboard:index')  # Redirect to admin dashboard
-                elif role == 'cashier':
-                    return redirect('billing:sales_view')  # Redirect to sales page
-                elif role == 'staff':
-                    return redirect('inventory:overview')  # Redirect to inventory management page
-                else:
-                    return redirect('dashboard:index')  # Default fallback
+                # Check if cart_id exists in session, create a new one if not
+                if 'cart_id' not in request.session:
+                    request.session['cart_id'] = generate_new_cart_id()  # Create new 10-digit cart_id for this session
+                    print(f"New cart_id created: {request.session['cart_id']}")  # Debugging line
+                
+                try:
+                    # Retrieve the user's profile and role
+                    user_profile = UserProfile.objects.get(user=user)
+                    role = user_profile.role  # Assuming 'role' is in the UserProfile model
+
+                    # Redirect based on role
+                    if role:
+                        return redirect('dashboard:index')  # Redirect to the index page in the dashboard
+                    else:
+                        return redirect('accounts:login')
+                except UserProfile.DoesNotExist:
+                    # Handle case where the user profile does not exist
+                    error_message = "User profile does not exist."
+                    return render(request, 'accounts/login.html', {'error': error_message})
 
             else:
                 error_message = "Invalid login credentials"
@@ -62,9 +82,11 @@ def user_login(request):
 
     return render(request, 'accounts/login.html')
 
+
 # Logout view
 def user_logout(request):
     logout(request)
+    request.session.flush()
     return redirect('accounts:login')  # Redirect to login page after logout
 
 from django.shortcuts import render, redirect
@@ -82,21 +104,36 @@ def user_signup(request):
     return render(request, 'registration/signup.html', {'form': form})
 
 
+from django.shortcuts import render, redirect
+from django.contrib.auth import authenticate, login
+from .models import UserProfile, CustomUser
+from .models import CustomUser, UserProfile
 
 def register_user(request):
     if request.method == 'POST':
-        form = UserRegistrationForm(request.POST)
-        if form.is_valid():
-            user = form.save(commit=False)
-            user.set_password(form.cleaned_data['password'])
+        username = request.POST.get('username')
+        email = request.POST.get('email')
+        password = request.POST.get('password')
+        password_confirm = request.POST.get('password_confirm')
+
+        if password == password_confirm:
+            # Create the user
+            user = CustomUser.objects.create_user(username=username, email=email, password=password)
             user.save()
 
-            # Assign user profile and role
-            role = form.cleaned_data['role']
-            store = request.POST.get('store')  # Assuming store is selected in the form
-            UserProfile.objects.create(user=user, store_id=store, role=role)
+            # Create the UserProfile
+            UserProfile.objects.create(user=user)
 
             return redirect('accounts:login')
-    else:
-        form = UserRegistrationForm()
-    return render(request, 'accounts/register.html', {'form': form})
+        else:
+            error_message = "Passwords do not match"
+            return render(request, 'accounts/register.html', {'error': error_message})
+
+    return render(request, 'accounts/register.html')
+
+# views.py
+from django.shortcuts import render
+
+def auth_view(request):
+    # Custom view logic
+    return render(request, 'password_reset_form.html')

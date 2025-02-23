@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+
+{% block content %}
+  <h2>Receipt Details</h2>
+
+  <div>
+    <p><strong>Store:</strong> {{ revenue.store.name }}</p>
+    <p><strong>Amount:</strong> {{ revenue.amount }}</p>
+    <p><strong>Description:</strong> {{ revenue.description|default:"No description provided." }}</p>
+    <p><strong>Date Added:</strong> {{ revenue.date_added }}</p>
+    <p><strong>Added By:</strong> {{ revenue.added_by.username|default:"Unknown" }}</p>
+  </div>
+
+  {% if revenue.receipt_attachment %}
+    <p><a href="{{ revenue.receipt_attachment.url }}" class="btn btn-success" target="_blank">View Receipt</a></p>
+  {% else %}
+    <p class="text-danger">No receipt uploaded.</p>
+  {% endif %}
+
+  <a href="{% url 'expenses:download_receipt' revenue.id %}" class="btn btn-primary">Download Receipt</a>
+  <a href="{% url 'expenses:revenue_list' %}" class="btn btn-secondary">Back</a>
+{% endblock %}

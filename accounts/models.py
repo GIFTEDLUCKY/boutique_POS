@@ -1,12 +1,9 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
-from store.models import Store  # Import your store model
-from django.contrib.auth.models import User
 from django.conf import settings
 
-
 class CustomUser(AbstractUser):
-    store = models.ForeignKey(Store, on_delete=models.SET_NULL, null=True, blank=True)
+    store = models.ForeignKey('store.Store', on_delete=models.SET_NULL, null=True, blank=True)
 
     groups = models.ManyToManyField(
         'auth.Group',
@@ -23,16 +20,15 @@ class CustomUser(AbstractUser):
         return self.username
 
 
-
 class UserProfile(models.Model):
     user = models.OneToOneField('accounts.CustomUser', on_delete=models.CASCADE)
-    store = models.ForeignKey('store.Store', on_delete=models.SET_NULL, null=True)
+    store = models.ForeignKey('store.Store', on_delete=models.SET_NULL, null=True, blank=True)  # Make store optional
     ROLE_CHOICES = [
         ('admin', 'Admin'),
         ('cashier', 'Cashier'),
         ('staff', 'Staff'),
     ]
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='staff')
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, null=True, blank=True, default='staff')  # Make role optional
 
     def __str__(self):
         return f"{self.user.username} - {self.role}"

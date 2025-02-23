@@ -1,0 +1,128 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-4">Transaction Search</h2>
+
+    <!-- Search form -->
+    <div class="input-group mb-3">
+        <input type="text" id="billNumber" class="form-control" placeholder="Enter Bill Number">
+        <button class="btn btn-primary" onclick="searchBill()">Search</button>
+    </div>
+
+    <!-- Total Display -->
+    <div id="totalDisplay" class="mb-3" style="font-size: 1.2em;">
+        <strong>Total: </strong><span id="totalAmount">0.00</span>
+    </div>
+
+    <!-- Table for displaying transaction items -->
+    <div class="table-responsive">
+        <table class="table table-bordered">
+            <thead class="table-dark">
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity</th>
+                    <th>Price</th>
+                    <th>Subtotal</th>
+                </tr>
+            </thead>
+            <tbody id="cartTableBody">
+                <!-- Items will be added dynamically here -->
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Generate Invoice Button -->
+    <button class="btn btn-info mt-3" onclick="generateInvoice()">Generate Invoice</button>
+    <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+</div>
+
+<script>
+function searchBill() {
+    var billNumber = document.getElementById("billNumber").value;
+    var url = "/billing/transaction/search/?bill_number=" + billNumber;
+
+    fetch(url)
+        .then(response => response.json())
+        .then(data => {
+            var tableBody = document.getElementById("cartTableBody");
+            tableBody.innerHTML = ""; // Clear existing data
+
+            let totalAmount = 0; // To track the total amount
+
+            if (data.cart_items && data.cart_items.length > 0) {
+                data.cart_items.forEach(item => {
+                    var row = document.createElement("tr");
+
+                    var price = parseFloat(item.price) || 0;
+                    var subtotal = parseFloat(item.subtotal) || 0;
+                    totalAmount += subtotal;
+
+                    row.innerHTML = `
+                        <td>${item.name}</td>
+                        <td>${item.quantity}</td>
+                        <td>${price.toFixed(2)}</td>
+                        <td>${subtotal.toFixed(2)}</td>
+                    `;
+                    tableBody.appendChild(row);
+                });
+
+                document.getElementById("totalAmount").textContent = totalAmount.toFixed(2);
+            } else {
+                tableBody.innerHTML = `<tr><td colspan="4" class="text-center">No transactions found for this bill number.</td></tr>`;
+            }
+        })
+        .catch(error => {
+            console.error("Error:", error);
+            alert("An error occurred while fetching data.");
+        });
+}
+
+function generateInvoice() {
+    var billNumber = document.getElementById("billNumber").value;  // This is your cart_id
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch("/billing/re_print_invoice/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify({ "cart_id": billNumber })  // Send only cart_id
+    })
+    .then(response => response.text())
+    .then(html => {
+        document.open();
+        document.write(html);
+        document.close();
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("An error occurred while generating the invoice.");
+    });
+
+
+    var csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    fetch("/billing/re_print_invoice/", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json",
+            "X-CSRFToken": csrfToken
+        },
+        body: JSON.stringify(cartItems)
+    })
+    .then(response => response.text())
+    .then(html => {
+        document.open();
+        document.write(html);
+        document.close();
+    })
+    .catch(error => {
+        console.error("Error:", error);
+        alert("An error occurred while generating the invoice.");
+    });
+}
+</script>
+
+{% endblock %}

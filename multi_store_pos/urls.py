@@ -16,6 +16,8 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 
 urlpatterns = [
     # Admin site
@@ -23,6 +25,7 @@ urlpatterns = [
 
     # Account-related URLs
     path('accounts/', include('accounts.urls', namespace='accounts')),
+    path('', include('django.contrib.auth.urls')),
 
     # Dashboard URLs (includes index as the default view)
     # path('dashboard/', include('dashboard.urls', namespace='dashboard')),
@@ -36,6 +39,11 @@ urlpatterns = [
 
     # Billing-related URLs
     path('billing/', include('billing.urls')),
+
+    path('expenses/', include('expenses.urls'))
 ]
 
-    
+
+if settings.DEBUG:
+    urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
+    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)  # Add this for media files

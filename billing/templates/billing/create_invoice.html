@@ -1,0 +1,35 @@
+<!-- templates/billing/create_invoice.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Create Invoice</title>
+</head>
+<body>
+    <h1>Create Invoice</h1>
+    <form method="post">
+        {% csrf_token %}
+        <label for="customer_name">Customer Name:</label>
+        <input type="text" id="customer_name" name="customer_name" required><br><br>
+
+        <label for="total_amount">Total Amount:</label>
+        <input type="number" step="0.01" id="total_amount" name="total_amount" required><br><br>
+
+        <label for="payment_method">Payment Method:</label>
+        <select id="payment_method" name="payment_method" required>
+            <option value="Cash">Cash</option>
+            <option value="Credit Card">Credit Card</option>
+            <option value="Bank Transfer">Bank Transfer</option>
+        </select><br><br>
+
+        <label for="tax">Tax:</label>
+        <input type="number" step="0.01" id="tax" name="tax" required><br><br>
+
+        <label for="discount">Discount:</label>
+        <input type="number" step="0.01" id="discount" name="discount" required><br><br>
+
+        <button type="submit">Create Invoice</button>
+    </form>
+</body>
+</html>

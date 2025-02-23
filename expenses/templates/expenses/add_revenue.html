@@ -1,0 +1,45 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div style="max-width: 500px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);">
+    <h2 style="text-align: center; color: #333;">Add Revenue</h2>
+    
+    <form method="post" action="{% url 'expenses:add_revenue' %}" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 15px;">
+        {% csrf_token %}
+        
+        <label for="id_amount" style="font-weight: bold; color: #555;">Amount:</label>
+        {{ form.amount }}
+
+        <label for="id_description" style="font-weight: bold; color: #555;">Description:</label>
+        <textarea name="description" id="id_description" style="height: 80px; width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
+
+        <label for="id_store_id" style="font-weight: bold; color: #555;">Store:</label>
+        {{ form.store }}
+
+        <!-- Read-Only Logged-in User Field -->
+        <label for="id_added_by" style="font-weight: bold; color: #555;">Added By:</label>
+        <input type="text" value="{{ request.user.get_full_name|default:request.user.username }}" readonly style="background: #f5f5f5; padding: 8px; border-radius: 5px; border: 1px solid #ddd;">
+
+        <!-- Hidden Input to Submit the Logged-in User's ID -->
+        <input type="hidden" name="added_by" value="{{ request.user.id }}">
+
+        <label for="id_payment_method" style="font-weight: bold; color: #555;">Payment Method:</label>
+        {{ form.payment_method }}
+
+        <label for="id_receipt_attachment" style="font-weight: bold; color: #555;">Receipt Attachment:</label>
+        {{ form.receipt_attachment }}
+
+        <button type="submit" style="background: green; color: white; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;">
+            Save Revenue
+        </button>
+    </form>
+</div>
+
+<br>
+<div style="text-align: center;">
+    <a href="{% url 'expenses:revenue_list' %}" style="background: blue; color: white; padding: 12px; font-size: 14px; text-decoration: none; border-radius: 5px; display: inline-block;">
+        View Revenue List
+    </a>
+</div>
+
+{% endblock %}

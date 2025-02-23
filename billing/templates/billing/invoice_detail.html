@@ -1,5 +1,31 @@
-<h3>Invoice Details</h3>
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Invoice</h1>
 <p>Invoice ID: {{ invoice.id }}</p>
-<p>Total: ₦{{ invoice.total }}</p>
-<p>Amount Paid: ₦{{ invoice.amount_paid }}</p>
-<p>Change: ₦{{ invoice.change }}</p>
+<p>Customer Name: {{ invoice.customer_name }}</p>
+<p>Total Amount: {{ invoice.total_amount }}</p>
+<p>Date: {{ invoice.created_at }}</p>
+
+<h3>Products</h3>
+<table>
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Price</th>
+            <th>Subtotal</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for item in invoice.transactioninvoice_set.all %}
+        <tr>
+            <td>{{ item.product.name }}</td>
+            <td>{{ item.quantity }}</td>
+            <td>{{ item.price }}</td>
+            <td>{{ item.subtotal }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

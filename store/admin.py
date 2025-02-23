@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import Store, Supplier, Category, Product, Staff
-
+from .models import StoreProduct
 
 
 
@@ -47,3 +47,7 @@ class ProductAdmin(admin.ModelAdmin):
     discounted_price.admin_order_field = 'discounted_price'  # Allow ordering by this field in admin
 
 
+@admin.register(StoreProduct)
+class StoreProductAdmin(admin.ModelAdmin):
+    list_display = ('store', 'product', 'quantity')
+    search_fields = ('store__name', 'product__name')  # This allows searching by store name or product name

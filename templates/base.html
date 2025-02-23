@@ -1,118 +1,252 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}GLIMS Inventory System{% endblock %}</title>
-    
-    <!-- Bootstrap CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- base.html -->
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+        <meta charset="UTF-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <title>{% block title %}GLIMS Inventory System{% endblock %}</title>
 
-    <style>
-        /* Ensure the page takes up full height */
-        html, body {
-            height: 100%;
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-        }
+        <!-- Bootstrap CSS -->
+        <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css" rel="stylesheet">
 
-        /* Make the main content container grow to fill available space */
-        .content-wrapper {
-            flex: 1;
-        }
+        
 
-        /* Navbar Styling */
-        .navbar {
-            background-color: #4169E1; /* Same as footer's royal blue background */
-            color: white;
-            position: sticky;
-            top: 0;
-            z-index: 1030;
-        }
+        {% load static %}
+        <link rel="icon" type="image/django.ico" href="{% static 'django.ico' %}">
 
-        .navbar .navbar-brand,
-        .navbar .nav-link {
-            color: white !important;
-        }
+        <style>
+            /* Ensure the page takes up full height */
+            html, body {
+                height: 100%;
+                margin: 0;
+                padding: 0;
+                display: flex;
+                flex-direction: column;
+            }
 
-        .navbar .nav-link:hover {
-            background-color: #27408B;
-            color: white !important;
-        }
+            /* Make the main content container grow to fill available space */
+            .content-wrapper {
+                flex: 1;
+            }
 
-        /* Footer Styling */
-        footer {
-            background-color: #4169E1;
-            color: white;
-            text-align: center;
-            padding: 10px 0;
-        }
-    </style>
+            /* Navbar Styling */
+            .navbar {
+                background-color: #8b4513; /* Royal blue */
+                color: white;
+                position: sticky;
+                top: 0;
+                z-index: 1030;
+                width: 100%; /* Ensure it spans the entire width */
+            }
 
-    {% block extra_head %}{% endblock %}
-</head>
-<body>
+            .navbar .navbar-brand,
+            .navbar .nav-link {
+                color: white !important;
+            }
 
-    <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg">
-        <div class="container-fluid">
-            <a class="navbar-brand" href="#">GLIMS Inventory</a>
-            <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                <span class="navbar-toggler-icon"></span>
-            </button>
-            <div class="collapse navbar-collapse" id="navbarNav">
-                <ul class="navbar-nav me-auto">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'dashboard:index' %}">Dashboard</a>
-                        </li>
-                        <li class="nav-item dropdown">
-                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                Store
-                            </a>
-                            <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                <li><a class="dropdown-item" href="{% url 'store:add_supplier' %}">Manage Suppliers</a></li>
-                                <li><a class="dropdown-item" href="{% url 'store:add_category' %}">Manage Categories</a></li>
-                                <li><a class="dropdown-item" href="{% url 'store:add_product' %}">Add Product</a></li>
-                                <li><a class="dropdown-item" href="{% url 'store:add_store' %}">Manage Store</a></li>
-                            </ul>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'billing:sales_view' %}">Sales</a>
-                        </li>
-                    {% endif %}
-                </ul>
-                <ul class="navbar-nav ms-auto">
-                    {% if user.is_authenticated %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:logout' %}">Logout</a>
-                        </li>
-                    {% else %}
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
-                        </li>
-                        <li class="nav-item">
-                            <a class="nav-link" href="{% url 'accounts:register' %}">Register</a>
-                        </li>
-                    {% endif %}
-                </ul>
+            .navbar .nav-link:hover {
+                background-color: #a52;
+                color: white !important;
+            }
+
+            .navbar .navbar-text {
+                color: white !important;
+                margin-left: 20px;
+                margin-right: 10px;
+                font-size: 14px; /* Adjust for better alignment */
+            }
+
+            /* Styling for Logout Button */
+            .navbar .btn-logout {
+                background-color:#d2691e;
+                color: white;
+                border: none;
+                margin-left: 15px; /* Space between the welcome and logout */
+                padding: 5px 15px;
+                border-radius: 5px;
+            }
+
+            .navbar .btn-logout:hover {
+                background-color:  #654321; /* Darker navy on hover */
+                color: white;
+            }
+
+            /* Footer Styling */
+            footer {
+                background-color: #8b4513;
+                color: white;
+                text-align: center;
+                padding: 10px 0;
+                
+            }
+
+            #salesLink{
+                color: #000;
+            }
+        </style>
+
+        {% block extra_head %}{% endblock %}
+    </head>
+    <body>
+
+
+        {% load user_roles %}  <!-- Load the custom templatetag -->
+
+
+        
+        <!-- Navbar -->
+        <nav class="navbar navbar-expand-lg">
+            <div class="container-fluid">
+                <a class="navbar-brand" href="#">GLIMS Inventory</a>
+                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+                    <span class="navbar-toggler-icon"></span>
+                </button>
+                <div class="collapse navbar-collapse" id="navbarNav">
+                    <ul class="navbar-nav me-auto">
+                        {% if user.is_authenticated %}
+                            <li class="nav-item">
+                                <a id="dashboardLink" class="nav-link" href="{% url 'dashboard:index' %}">Dashboard</a>
+                            </li>
+
+                            {% if user|has_group:"Admin" %}
+                                <!-- Admin-specific links -->
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Finance
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <li><a class="dropdown-item" href="{% url 'expenses:add_expenditure' %}">Add Expense</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'expenses:expense_list' %}">View Expenses</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'expenses:add_revenue' %}">Add Revenue</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'expenses:revenue_list' %}">View Revenue List</a>
+                                        </li>
+                                        <li><a class="dropdown-item" href="{% url 'billing:all_transactions' %}">All Transactions</a></li>
+                                    </ul>
+                                </li>
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Store
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
+                                        <li><a class="dropdown-item" href="{% url 'store:add_supplier' %}">Manage Suppliers</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'store:add_category' %}">Manage Categories</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'store:add_product' %}">Add Product</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'store:add_store' %}">Manage Store</a></li>
+                                        
+                                    </ul>
+                                </li>
+
+                        
+                            {% endif %}
+
+                            {% if user|has_group:"Admin" or user|has_group:"Cashier" %}
+                                <!-- Cashier-specific links -->
+                                <li class="nav-item dropdown">
+                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAccount" role="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        Billing
+                                    </a>
+                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownAccount">
+                                        <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:sales_view' %}">Sales</a></li>
+                                        <li><a id="rePrintBillLink" class="dropdown-item" href="{% url 'billing:transaction_search' %}">Re-Print Bill</a></li>
+                                    </ul>
+                                    
+                                        
+                                    
+                                </li>
+                                
+                                
+                                
+                            {% endif %}
+                        {% endif %}
+                    </ul>
+                    <ul class="navbar-nav ms-auto align-items-center">
+                        {% if user.is_authenticated %}
+                            <li class="nav-item">
+                                <span class="navbar-text">Welcome, {{ user.first_name|default:user.username }}!</span>
+                            </li>
+                            <li class="nav-item">
+                                <span class="navbar-text"><strong>Date:</strong> <span id="current-date"></span></span>
+                            </li>
+                            <li class="nav-item">
+                                <span class="navbar-text"><strong>Time:</strong> <span id="current-time"></span></span>
+                            </li>
+                            <li class="nav-item">
+                                <a class="btn btn-logout" href="{% url 'accounts:logout' %}">Logout</a>
+                            </li>
+                        {% else %}
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
+                            </li>
+                            <li class="nav-item">
+                                <a class="nav-link" href="{% url 'accounts:register' %}">Register</a>
+                            </li>
+                        {% endif %}
+                    </ul>
+                </div>
             </div>
+        </nav>
+
+        <!-- Main Content -->
+
+        {% if messages %}
+        <div style="max-width: 500px; margin: auto; padding: 10px;">
+            {% for message in messages %}
+                <div style="padding: 10px; margin-bottom: 10px; border-radius: 5px;
+                            {% if message.tags == 'success' %} background: #d4edda; color: #155724;
+                            {% elif message.tags == 'error' %} background: #f8d7da; color: #721c24;
+                            {% endif %}">
+                    {{ message }}
+                </div>
+            {% endfor %}
         </div>
-    </nav>
+        {% endif %}
 
-    <!-- Main Content -->
-    <div class="container content-wrapper">
-        {% block content %}{% endblock %}
-    </div>
+        <div class="container content-wrapper">
+            
+            {% block content %}{% endblock %}
+        </div>
 
-    <!-- Footer -->
-    <footer>
-        <p>&copy; 2025 GLIMS Inventory. All Rights Reserved.</p>
-    </footer>
+        
+        <!-- Footer -->
+        <footer>
+            <p>&copy; 2025 GLIMS Inventory. All Rights Reserved.</p>
+        </footer>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
-</body>
-</html>
+        <!-- Bootstrap JS -->
+        <script src="https://cdn.jsdelivr.net/npm/@popperjs/core@2.11.6/dist/umd/popper.min.js"></script>
+        <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.min.js"></script>
+
+        <!-- JavaScript to display current date and time -->
+        <script>
+            function updateDateTime() {
+                const dateElement = document.getElementById('current-date');
+                const timeElement = document.getElementById('current-time');
+        
+                const now = new Date();
+        
+                const day = String(now.getDate()).padStart(2, '0');
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const year = now.getFullYear();
+                const formattedDate = `${day}-${month}-${year}`;
+                dateElement.textContent = formattedDate;
+        
+                let hours = now.getHours();
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                const seconds = String(now.getSeconds()).padStart(2, '0');
+                const ampm = hours >= 12 ? 'PM' : 'AM';
+                hours = hours % 12 || 12;
+                const formattedTime = `${hours}:${minutes}:${seconds} ${ampm}`;
+                timeElement.textContent = formattedTime;
+            }
+        
+            setInterval(updateDateTime, 1000);
+            updateDateTime();
+
+
+
+
+    </script>
+
+        
+    </body>
+    </html>

@@ -1,40 +1,22 @@
-# account/forms.py
 from django import forms
-from store.models import Store  # Assuming your Store model is in the store app
-# accounts/forms.py
-from .models import CustomUser, UserProfile
-from django.contrib.auth import get_user_model
+from django.contrib.auth.forms import UserCreationForm
+from .models import CustomUser  # If you're using a custom user model
 
-
-CustomUser = get_user_model()  # Get the custom user model
-
-class UserRegistrationForm(forms.ModelForm):
-    password = forms.CharField(widget=forms.PasswordInput)
-    password_confirm = forms.CharField(widget=forms.PasswordInput)
-    store = forms.ModelChoiceField(queryset=Store.objects.all(), required=True, label="Store")
+class UserRegistrationForm(UserCreationForm):
+    email = forms.EmailField(required=True, widget=forms.EmailInput(attrs={'class': 'form-control'}))
 
     class Meta:
         model = CustomUser
-        fields = ['username', 'email', 'store']
+        fields = ['username', 'email', 'password1', 'password2']  # Include all necessary fields
 
     def clean(self):
         cleaned_data = super().clean()
-        password = cleaned_data.get('password')
-        password_confirm = cleaned_data.get('password_confirm')
+        password1 = cleaned_data.get('password1')
+        password2 = cleaned_data.get('password2')
 
-        if password != password_confirm:
-            raise forms.ValidationError("Passwords do not match.")
+        # Check if the passwords match
+        if password1 and password2:
+            if password1 != password2:
+                raise forms.ValidationError("The passwords do not match.")
+
         return cleaned_data
-
-    def save(self, commit=True):
-        user = super().save(commit=False)
-        user.set_password(self.cleaned_data['password'])
-
-        if commit:
-            user.save()
-
-            # Create a UserProfile for the new user
-            user_profile = UserProfile(user=user)
-            user_profile.save()
-
-        return user

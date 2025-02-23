@@ -1,8 +1,20 @@
 from django.shortcuts import render
-from store.models import Store
-from accounts.decorators import role_required
+from django.core.exceptions import ObjectDoesNotExist
 
-@role_required(['admin'])
+from django.shortcuts import render, redirect
+
+
+from django.contrib.auth.decorators import login_required
+
+
+@login_required
 def index(request):
-    stores = Store.objects.all()
-    return render(request, 'dashboard/index.html', {'stores': stores})  # Render the index template
+    if request.user.is_authenticated:
+        # Access userprofile only for authenticated users
+        user_profile = request.user.userprofile
+        # Do something with user_profile
+        return render(request, 'dashboard/index.html', {'user_profile': user_profile})
+    else:
+        # Redirect to login or display a message
+        return redirect('accounts:login')  # Replace 'login' with the name of your login URL
+

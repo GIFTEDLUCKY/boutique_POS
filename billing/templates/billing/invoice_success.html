@@ -1,11 +1,21 @@
-{% extends 'base.html' %}
+<!-- templates/billing/invoice_success.html -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Invoice Created</title>
+</head>
+<body>
+    <h1>Invoice Successfully Created!</h1>
+    <p><strong>Invoice Number:</strong> {{ invoice.invoice_number }}</p>
+    <p><strong>Customer Name:</strong> {{ invoice.customer_name }}</p>
+    <p><strong>Total Amount:</strong> {{ invoice.total_amount }}</p>
+    <p><strong>Payment Method:</strong> {{ invoice.payment_method }}</p>
+    <p><strong>Tax:</strong> {{ invoice.tax }}</p>
+    <p><strong>Discount:</strong> {{ invoice.discount }}</p>
+    <p><strong>Created At:</strong> {{ invoice.created_at }}</p>
 
-{% block title %}Invoice Success{% endblock %}
-
-{% block content %}
-<div class="container mt-4">
-    <h3>Invoice Generated Successfully!</h3>
-    <p>Your transaction has been processed successfully.</p>
-    <a href="{% url 'sales_view' %}" class="btn btn-primary">Go Back to Sales</a>
-</div>
-{% endblock %}
+    <a href="{% url 'create_invoice' %}">Create Another Invoice</a>
+</body>
+</html>

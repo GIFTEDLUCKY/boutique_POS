@@ -1,0 +1,33 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<h1>Product List</h1>
+<table class="table table-bordered table-striped table-hover">
+    <thead>
+        <tr>
+            <th>Product Name</th>
+            <th>Stock</th>
+            <th>Price</th>
+            <th>Discounted Price</th>
+            <th>Store</th>  <!-- Added Store column -->
+            <th>Discount</th>  <!-- Added Discount column -->
+        </tr>
+    </thead>
+    <tbody>
+        {% for product in products %}
+        <tr>
+            <td>{{ product.name }}</td>
+            <td>{{ product.quantity }}</td>
+            <td>{{ product.selling_price }}</td>
+            <td>{{ product.discounted_price }}</td>
+            <td>{{ product.store.name }}</td>  <!-- Display Store name -->
+            <td>{{ product.discount }}</td>  <!-- Display Discount -->
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" class="text-center">No products available.</td>  <!-- Adjusted colspan -->
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+{% endblock %}

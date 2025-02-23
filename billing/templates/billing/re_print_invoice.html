@@ -1,0 +1,168 @@
+{% extends 'base.html' %}
+
+{% block title %}Refund Invoice{% endblock %}
+
+{% block content %}
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Refund Invoice</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+        }
+
+        .invoice-container {
+            width: 85mm; /* Adjust to 58mm or 80mm based on your printer size */
+            margin: 0 auto;
+            padding: 10px;
+            border: 0.2px solid black;
+            font-size: 12px; /* Smaller font size suitable for receipts */
+        }
+
+        h2, h3 {
+            font-size: 14px;
+            text-align: center;
+            margin: 5px 0;
+        }
+
+        p {
+            margin: 5px 0;
+            font-size: 12px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 10px 0;
+            border: 0.2px solid black;
+        }
+
+        table, th, td {
+            font-size: 10px;
+            text-align: center;
+            border: 0.3px solid black;
+        }
+
+        th, td {
+            padding: 5px;
+        }
+
+        .total {
+            font-weight: bold;
+            font-size: 10px;
+        }
+
+        @media print {
+            body {
+                margin: 0;
+                padding: 0;
+            }
+
+            .invoice-container {
+                margin: 0 auto;
+                width: 85mm; /* Ensure correct width for receipt roll paper */
+                page-break-after: auto; /* Ensures receipt prints as one page */
+            }
+
+            .btn-secondary, #print-button, #cancel-button {
+                display: none; /* Hide buttons on print */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="invoice-container">
+        <h2>GLIMS Inventory {{ store_info.store_name }}</h2>
+        <p>{{ store_info.address }}</p>
+        <h3>"Bringing your store to your hand" {{ store_info.contact }}</h3>
+
+        <hr>
+
+        <h3>Re-Print Invoice </h3>
+        <p><strong>Invoice ID:</strong> {% if cart_items %}{{ cart_items.first.cart_id }}{% endif %}</p>
+        <p><strong>Cashier:</strong> {{ user.username }}</p>
+        <p><strong>Location:</strong> {% if cart_items %}{{ cart_items.first.store.name }}{% endif %}</p>
+        
+        <p><strong>Customer Name:</strong> {% if cart_items %}{{ cart_items.first.customer_name }}{% endif %}</p>
+        <p><strong>Payment Method:</strong> {% if cart_items %}{{ cart_items.first.payment_method }}{% endif %}</p>
+        <p><strong>Date:</strong> {% if cart_items %}{{ cart_items.first.created_at|date:"d-m-y" }}{% endif %}</p>
+
+        <table>
+            <thead>
+                <tr>
+                    <th>S/No</th>
+                    <th>Product</th>
+                    <th>Qty</th>
+                    <th>Price</th>
+                    <th>Sub</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in cart_items %}
+                    <tr>
+                        <td>{{ forloop.counter }}</td> <!-- Serial number -->
+                        <td>
+                            {% if item.product %}
+                                {{ item.product.name }}
+                            {% else %}
+                                No Product
+                            {% endif %}
+                        </td>
+                        <td>{{ item.quantity }}</td>
+                        <td>{{ item.price }}</td>
+                        <td>{{ item.subtotal }}</td>
+                    </tr>
+                {% empty %}
+                    <tr>
+                        <td colspan="5">No items found</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+
+        <hr>
+
+        <table>
+            <tr>
+                <td>Subtotal:</td>
+                <td>GH₵{{ subtotal }}</td>
+            </tr>
+            <tr>
+                <td>Discount:</td>
+                <td>GH₵{{ discount }}</td>
+            </tr>
+            <tr>
+                <td>Tax:</td>
+                <td>GH₵{{ tax }}</td>
+            </tr>
+            <tr class="total">
+                <td>Total:</td>
+                <td>GH₵{{ total }}</td>
+            </tr>
+        </table>
+
+        <p>Thank you for shopping with us!</p>
+        <p><strong>Store Address:</strong> {% if cart_items %}{{ cart_items.first.store.location }}{% endif %}</p>
+        <p><strong>Contact:</strong> {% if cart_items %}{{ cart_items.first.store.manager_name }}{% endif %}</p>
+    </div>
+
+    <div class="invoice-footer">
+        <button id="print-button" class="btn btn-primary">Re-Print Invoice</button>
+        <button id="cancel-button" class="btn btn-danger">Cancel</button>
+    </div>
+
+    <script>
+        document.getElementById("print-button").addEventListener("click", function() {
+            window.print();
+        });
+
+        document.getElementById("cancel-button").addEventListener("click", function() {
+            window.location.href = "{% url 'billing:transaction_search' %}";
+        });
+    </script>
+</body>
+</html>
+{% endblock %}

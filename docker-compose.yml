@@ -1,0 +1,45 @@
+services:
+  db:
+    image: mysql:8.0
+    container_name: mysql_db
+    restart: always
+    environment:
+      MYSQL_DATABASE: multi_store_db
+      MYSQL_USER: admin
+      MYSQL_PASSWORD: admin
+      MYSQL_ROOT_PASSWORD: admin
+    ports:
+      - "3307:3306"  # External port mapped to 3307, internal still 3306
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 30s
+      retries: 3
+      start_period: 40s
+      timeout: 30s
+
+  web:
+    build: .
+    container_name: django_app
+    restart: always
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DB_NAME: multi_store_db
+      DB_USER: admin
+      DB_PASSWORD: admin
+      DB_HOST: db  # Internal service name for container communication
+      DB_PORT: 3306  # Internal MySQL port, not 3307
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    command: >
+      sh -c "sleep 10 && python manage.py migrate &&
+         python manage.py runserver 0.0.0.0:8000"
+
+
+volumes:
+  mysql_data:

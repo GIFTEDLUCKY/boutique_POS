@@ -33,7 +33,7 @@
                     <textarea class="form-control form-control-sm" id="description" name="description" 
                         placeholder="Enter Description">{{ form.description.value }}</textarea>
                 </div>
-                <button type="submit" class="btn btn-primary btn-sm mt-2">Add Supplier</button>
+                <button type="submit" class="btn btn-success btn-sm mt-2">Add Supplier</button>
             </form>
         </div>
 
@@ -50,7 +50,7 @@
                         placeholder="Search by Supplier Name" value="{{ request.GET.search_supplier_name }}">
                     <input type="text" name="search_supplier_contact" class="form-control form-control-sm me-2" 
                         placeholder="Search by Supplier Contact" value="{{ request.GET.search_supplier_contact }}">
-                    <button type="submit" class="btn btn-primary btn-sm">Search</button>
+                    <button type="submit" class="btn btn-success btn-sm">Search</button>
                 </div>
             </form>
 
@@ -108,8 +108,8 @@
     }
 
     body {
-        padding-top: 60px;
-        padding-bottom: 60px;
+        padding-top: 0px;
+        padding-bottom: 0px;
     }
 </style>
 {% endblock %}
