@@ -36,9 +36,9 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'  # Correct use of Path
 SECRET_KEY = 'django-insecure-%vucmgr0n798bp)x5pntjq5vwz8lv-ofcpcgtvwx&c*jh2ituh'
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
-ALLOWED_HOSTS = ['*']
+ALLOWED_HOSTS = ['multistorepos-production.up.railway.app']
 
 
 # Application definition
