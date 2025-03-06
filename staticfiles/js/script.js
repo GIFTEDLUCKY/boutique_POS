@@ -1,6 +1,5 @@
 console.log("JavaScript loaded");
 
-
 function filterTransactions() {
     const filterField = document.getElementById("filter_field").value;
     const filterValue = document.getElementById("filter_value").value;
@@ -21,14 +20,16 @@ function filterTransactions() {
             return response.json();
         })
         .then(data => {
-            console.log(data.transactions);
             const tableBody = document.querySelector("table tbody");
             tableBody.innerHTML = "";  // Clear existing rows
 
             let totalSales = 0;  // Initialize total sales
 
-            // Loop through the filtered transactions and add new rows
+            // ✅ Loop through the filtered transactions and add new rows
             data.transactions.forEach(transaction => {
+                console.log("Transaction Details:", transaction);  // ✅ Full transaction object
+                console.log("Tax Value:", transaction.tax);        // ✅ Check tax value specifically
+
                 const row = document.createElement("tr");
                 row.classList.add("even:bg-gray-100");
 
@@ -42,37 +43,36 @@ function filterTransactions() {
                     <td class="border px-4 py-2">${transaction.quantity}</td>
                     <td class="border px-4 py-2">${transaction.price}</td>
                     <td class="border px-4 py-2">${transaction.discount}</td>
-                    <td class="border px-4 py-2">${transaction.subtotal}</td>
+                    <td class="border px-4 py-2">${transaction.tax !== undefined && transaction.tax !== null ? transaction.tax : '0.00'}</td>
+                    <td class="border px-4 py-2">${transaction.subtotal !== undefined ? transaction.subtotal : '0.00'}</td>
+                    <td class="border px-4 py-2">${transaction.adjusted_final_price}</td>
                     <td class="border px-4 py-2">${transaction.created_at}</td>
                 `;
 
-                // Append new row to the table body
                 tableBody.appendChild(row);
-
-                // Add subtotal to total sales
-                totalSales += parseFloat(transaction.subtotal) || 0;
+                totalSales += parseFloat(transaction.subtotal !== undefined ? transaction.subtotal : '0.00');
             });
 
-            // Update total sales display
+            // ✅ Update total sales display
             const totalSalesElement = document.getElementById("total_sales");
             if (totalSalesElement) {
                 totalSalesElement.textContent = `Total Sales: ${totalSales.toFixed(2)}`;
             }
 
-            // Set a fixed width for each column (adjust as needed)
+            // ✅ Set fixed width for each column
             const table = document.querySelector("table");
             const columns = table.querySelectorAll("th");
-            const columnWidths = [150, 200, 250, 180, 200, 150, 100, 120, 130, 150, 200]; // Define column widths here
+            const columnWidths = [150, 200, 250, 180, 150, 150, 100, 120, 130, 100, 120, 120, 200];
 
             columns.forEach((col, index) => {
                 col.style.width = `${columnWidths[index]}px`;
             });
 
-            // Adjust table layout
+            // ✅ Enforce consistent table structure
             table.style.width = "100%";
             table.style.tableLayout = "fixed";
+            table.style.borderCollapse = "collapse";
 
-            // Optional: Force recalculation to prevent shifting
             const rows = table.querySelectorAll("tr");
             rows.forEach(row => {
                 row.style.tableLayout = "fixed";
@@ -84,25 +84,17 @@ function filterTransactions() {
 }
 
 
-
-
-
 document.addEventListener("DOMContentLoaded", function () {
     const resetButton = document.getElementById("resetButton");
 
     if (resetButton) {
         resetButton.addEventListener("click", function () {
-            window.location.href = 'http://127.0.0.1:8000/billing/transactions/all/';
+            window.location.href = resetButton.dataset.url;
         });
     } else {
         console.error("Reset button not found in the document.");
     }
 });
-
-
-
-
-
 
 
 
@@ -113,6 +105,8 @@ function exportToExcel(transactions) {
     XLSX.utils.book_append_sheet(ws, wb, "Transactions");
     XLSX.writeFile(ws, "transactions.xlsx");
 }
+
+
 
 
 // Event listeners
@@ -253,18 +247,22 @@ document.addEventListener("DOMContentLoaded", function() {
     console.log("DOM fully loaded and parsed"); // Debugging line
 
     var productElement = document.querySelector(".product");
+    console.log("Product element:", productElement); // Check if the element exists
+
+    if (productElement) {
+        console.log("Data-stock attribute:", productElement.getAttribute("data-stock")); // Check the data-stock value
+    }
+
     var stockQuantity = productElement ? parseInt(productElement.getAttribute("data-stock")) : NaN;
+    console.log("Stock quantity:", stockQuantity); // Debugging line
 
-    console.log("Stock quantity: " + stockQuantity); // Debugging line
-
-    if (stockQuantity <= 10 && stockQuantity !== NaN) {
+    if (stockQuantity <= 10 && !isNaN(stockQuantity)) {
         var warningMessage = document.createElement("div");
         warningMessage.classList.add("alert", "alert-warning");
         warningMessage.textContent = "Warning: Stock for this product is running low!";
         document.body.appendChild(warningMessage);
     }
 });
-
 
 
 //==========================================================

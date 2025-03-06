@@ -1,5 +1,7 @@
 {% extends 'base.html' %}
 
+{% load static %}
+
 {% block title %}Refund Invoice{% endblock %}
 
 {% block content %}
@@ -75,21 +77,27 @@
 </head>
 <body>
     <div class="invoice-container">
+
+        <div style="text-align: center;">
+            <img src="{% static 'images/logo.png' %}" alt="Store Logo" style="max-width: 60px; max-height: 60px;">
+        </div>
+
         <h2>GLIMS Inventory {{ store_info.store_name }}</h2>
         <p>{{ store_info.address }}</p>
         <h3>"Bringing your store to your hand" {{ store_info.contact }}</h3>
 
         <hr>
 
-        <h3>Re-Print Invoice </h3>
+        <h3>Invoice Details </h3>
         <p><strong>Invoice ID:</strong> {% if cart_items %}{{ cart_items.first.cart_id }}{% endif %}</p>
         <p><strong>Cashier:</strong> {{ user.username }}</p>
         <p><strong>Location:</strong> {% if cart_items %}{{ cart_items.first.store.name }}{% endif %}</p>
         
         <p><strong>Customer Name:</strong> {% if cart_items %}{{ cart_items.first.customer_name }}{% endif %}</p>
         <p><strong>Payment Method:</strong> {% if cart_items %}{{ cart_items.first.payment_method }}{% endif %}</p>
-        <p><strong>Date:</strong> {% if cart_items %}{{ cart_items.first.created_at|date:"d-m-y" }}{% endif %}</p>
+        <p><strong>Date:</strong> {% if cart_items %}{{ cart_items.first.created_at|date:"d-m-y H:i" }}{% endif %}</p>
 
+    
         <table>
             <thead>
                 <tr>
@@ -146,7 +154,17 @@
 
         <p>Thank you for shopping with us!</p>
         <p><strong>Store Address:</strong> {% if cart_items %}{{ cart_items.first.store.location }}{% endif %}</p>
-        <p><strong>Contact:</strong> {% if cart_items %}{{ cart_items.first.store.manager_name }}{% endif %}</p>
+        <p><strong>Contact:</strong> {{ store.manager_name }}</p>
+
+
+        <div style="text-align: center;">
+            {% if qr_code_base64 %}
+                <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code" style="border: 0.5px solid black; width: 100px; height: 100px;">
+            {% else %}
+                <p>No QR Code available</p>
+            {% endif %}
+
+        </div>
     </div>
 
     <div class="invoice-footer">

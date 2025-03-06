@@ -12,7 +12,7 @@ class StaffAdmin(admin.ModelAdmin):
 
 @admin.register(Store)
 class StoreAdmin(admin.ModelAdmin):
-    list_display = ('name', 'location', 'manager_name', 'created_at')
+    list_display = ('name', 'location', 'manager', 'created_at')
     search_fields = ('name', 'location', 'manager_name')
     list_filter = ('created_at',)
 
@@ -36,14 +36,18 @@ class ProductAdmin(admin.ModelAdmin):
 
     def assumed_profit(self, obj):
         """Method to display assumed profit in the admin"""
-        return obj.assumed_profit()
+        # If assumed_profit is a calculated field, it should not be treated as a callable
+        return obj.assumed_profit  # Assuming `assumed_profit` is a Decimal field or property
     assumed_profit.admin_order_field = 'assumed_profit'  # Allow ordering by this field in admin
 
     def discounted_price(self, obj):
         """Method to display discounted price in the admin"""
-        # For simplicity, using a fixed discount of 10%. You can modify this as per your needs.
-        discount_percentage = 10
-        return obj.discounted_price(discount_percentage)
+        # Assuming `discount` and `selling_price` are fields in the model.
+        if obj.discount and obj.selling_price:
+            discount_percentage = obj.discount / 100  # Assuming discount is in percentage
+            discounted_price = obj.selling_price * (1 - discount_percentage)
+            return discounted_price
+        return obj.selling_price  # Return original selling price if no discount is applied
     discounted_price.admin_order_field = 'discounted_price'  # Allow ordering by this field in admin
 
 

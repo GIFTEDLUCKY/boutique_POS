@@ -129,16 +129,18 @@ class CategoryForm(forms.ModelForm):
                 field.initial = ""
 
 
+from django import forms
 from .models import Store
 
 class StoreForm(forms.ModelForm):
     class Meta:
         model = Store
-        fields = ['name', 'location', 'manager_name']
+        fields = ['name', 'location', 'manager', 'manager_contact']  # Added manager_contact
         widgets = {
             'name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter store name'}),
             'location': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter location'}),
-            'manager_name': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter manager name'}),
+            'manager': forms.Select(attrs={'class': 'form-control'}),  
+            'manager_contact': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter manager contact'}),  # Added this
         }
 
 

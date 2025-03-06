@@ -6,14 +6,21 @@ class TestModel(models.Model):
     def __str__(self):
         return self.name
 
+from django.conf import settings
+from django.db import models
+
 class Store(models.Model):
     name = models.CharField(max_length=255)
     location = models.CharField(max_length=255)
-    manager_name = models.CharField(max_length=255)
+    manager = models.ForeignKey(  # ✅ Links to User model
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name="stores"
+    )
+    manager_contact = models.CharField(max_length=20, blank=True, null=True)  # ✅ Stores contact
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.name
+        return f"{self.name} - {self.manager.get_full_name() if self.manager else 'No Manager'}"
+
 
 
 from django.db import models
@@ -113,14 +120,37 @@ class Category(models.Model):
     def __str__(self):
         return self.name
 
+from django.db import models
+from django.apps import apps  # ✅ Import to dynamically load models
+from store.models import Product, Store
 
 class StoreProduct(models.Model):
     store = models.ForeignKey(Store, on_delete=models.CASCADE)
     product = models.ForeignKey(Product, on_delete=models.CASCADE)
-    quantity = models.PositiveIntegerField()
+    quantity = models.PositiveIntegerField(default=0)
+
+    # ✅ Master product links all store variations
+    master_product = models.ForeignKey(
+        Product, on_delete=models.CASCADE, related_name="store_variants", null=True, blank=True
+    )
+
+    # ✅ Use a string reference to avoid circular import issues
+    warehouse_stock = models.ForeignKey('inventory.WarehouseStock', on_delete=models.CASCADE, null=True, blank=True)
+
+    def save(self, *args, **kwargs):
+        """Auto-assign master_product if not set."""
+        if not self.master_product:
+            self.master_product = self.product  # ✅ Use the main Product as master
+        super().save(*args, **kwargs)
+
+    def available_stock_in_warehouse(self):
+        """Check warehouse stock dynamically."""
+        WarehouseStock = apps.get_model('inventory', 'WarehouseStock')  # ✅ Dynamically get model
+        warehouse_stock = WarehouseStock.objects.filter(product=self.master_product).first()
+        return warehouse_stock.quantity if warehouse_stock else 0
 
     def __str__(self):
-        return f"{self.product.name} - {self.store.name}"
+        return f"{self.product.name} in {self.store.name} - {self.quantity} units"
 
 
 from django.core.exceptions import ValidationError
@@ -145,3 +175,20 @@ class TaxAndDiscount(models.Model):
         super().save(*args, **kwargs)
 
 
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .models import Product, StoreProduct, Store  # Import your models
+
+@receiver(post_save, sender=Product)
+def add_product_to_warehouse(sender, instance, created, **kwargs):
+    """
+    Automatically adds a new product to the main warehouse (store_id=1)
+    with zero quantity if it doesn't already exist.
+    """
+    if created:  # Only when a new product is created
+        warehouse, _ = Store.objects.get_or_create(id=1)  # Ensure store_id=1 exists
+        StoreProduct.objects.get_or_create(
+            product=instance,
+            store=warehouse,
+            defaults={"quantity": 0}  # Default to 0 until manually updated
+        )

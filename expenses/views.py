@@ -86,6 +86,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from .models import Expenditure
 from .forms import ExpenditureForm
 
+
 def edit_expenditure(request, pk):
     expenditure = get_object_or_404(Expenditure, pk=pk)
     
@@ -93,12 +94,15 @@ def edit_expenditure(request, pk):
         form = ExpenditureForm(request.POST, request.FILES, instance=expenditure)
         if form.is_valid():
             form.save()
+            messages.success(request, "Expenditure updated successfully!")
             return redirect('expenses:expense_list')
+        else:
+            messages.error(request, "Failed to update expenditure. Please check the form for errors.")
+
     else:
         form = ExpenditureForm(instance=expenditure)
 
     return render(request, 'expenses/edit_expenditure.html', {'form': form, 'expenditure': expenditure})
-
 
 # expenses/views.py
 from django.shortcuts import render, get_object_or_404, redirect
@@ -138,23 +142,30 @@ from accounts.models import UserProfile
 @login_required
 def add_revenue(request):
     if request.method == 'POST':
-        form = RevenueForm(request.POST, request.FILES)  # Include file uploads
+        form = RevenueForm(request.POST, request.FILES)
         if form.is_valid():
             form.instance.added_by = request.user  # Assign logged-in user
-            
-            # Try to fetch the store from the user's profile
-            try:
-                user_profile = UserProfile.objects.select_related('store').get(user=request.user)
-                
-                if user_profile.store:  # Ensure store is not None
-                    form.instance.store = user_profile.store  
-                    form.save()
-                    messages.success(request, "Revenue added successfully!")
-                    return redirect('expenses:revenue_list')
-                else:
-                    messages.error(request, "Error: No store is assigned to your profile.")
-            except UserProfile.DoesNotExist:
-                messages.error(request, "Error: Your profile is incomplete. Contact admin.")
+
+            # Use the store selected in the form, if provided
+            selected_store = form.cleaned_data.get('store')  
+
+            if selected_store:
+                form.instance.store = selected_store  # Save selected store
+            else:
+                try:
+                    user_profile = UserProfile.objects.select_related('store').get(user=request.user)
+                    if user_profile.store:
+                        form.instance.store = user_profile.store  # Fallback to user's store
+                    else:
+                        messages.error(request, "Error: No store is assigned to your profile.")
+                        return render(request, 'expenses/add_revenue.html', {'form': form})
+                except UserProfile.DoesNotExist:
+                    messages.error(request, "Error: Your profile is incomplete. Contact admin.")
+                    return render(request, 'expenses/add_revenue.html', {'form': form})
+
+            form.save()
+            messages.success(request, "Revenue added successfully!")
+            return redirect('expenses:revenue_list')
 
         else:
             messages.error(request, "Error: Please check the form fields.")
@@ -167,24 +178,27 @@ def add_revenue(request):
 
 
 
+
 from django.shortcuts import render, get_object_or_404, redirect
 from .models import Revenue
 from .forms import RevenueForm
 
-# View to edit revenue entry
 def edit_revenue(request, pk):
     revenue = get_object_or_404(Revenue, pk=pk)
 
     if request.method == 'POST':
-        form = RevenueForm(request.POST, request.FILES, instance=revenue)  # ✅ Add request.FILES
+        form = RevenueForm(request.POST, request.FILES, instance=revenue)
         if form.is_valid():
             form.save()
+            messages.success(request, "Revenue entry updated successfully!")
             return redirect('expenses:revenue_list')
+        else:
+            messages.error(request, "Failed to update revenue entry. Please check the form for errors.")
+
     else:
         form = RevenueForm(instance=revenue)
 
-    return render(request, 'expenses/edit_revenue.html', {'form': form})
-
+    return render(request, 'expenses/edit_revenue.html', {'form': form, 'revenue': revenue})
 
 # View to delete revenue entry
 def delete_revenue(request, pk):

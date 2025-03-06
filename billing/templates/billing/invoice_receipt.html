@@ -1,8 +1,13 @@
 {% extends 'base.html' %}
 
+{% load static %}
+
 {% block title %}Invoice Receipt{% endblock %}
 
+
 {% block content %}
+
+
 <!DOCTYPE html>
 <html>
 <head>
@@ -77,6 +82,12 @@
 </head>
 <body>
     <div class="invoice-container">
+
+        <div style="text-align: center;">
+            <img src="{% static 'images/logo.png' %}" alt="Store Logo" style="max-width: 60px; max-height: 60px;">
+
+        </div>
+        
         <h2>GLIMS Inventory {{ store_info.store_name }}</h2>
         <p>{{ store_info.address }}</p>
         <p>"Bringing your store to your hand " {{ store_info.contact }}</p>
@@ -125,19 +136,19 @@
         <table>
             <tr>
                 <td>Subtotal:</td>
-                <td>GH₵{{ subtotal }}</td>
+                <td>GH₵ {{ subtotal }}</td>
             </tr>
             <tr>
                 <td>Discount:</td>
-                <td>GH₵{{ discount }}</td>
+                <td>GH₵ {{ discount }}</td>
             </tr>
             <tr>
                 <td>Tax:</td>
-                <td>GH₵{{ tax }}</td>
+                <td>GH₵ {{ tax }}</td>
             </tr>
             <tr class="total">
                 <td>Total:</td>
-                <td>GH₵{{ total }}</td>
+                <td>GH₵ {{ total }}</td>
             </tr>
         </table>
         
@@ -146,10 +157,20 @@
         <p>Store Address: {{ store_info.location }}</p>
         <p>Contact: {{ store_info.manager_name }}</p>
 
-        <div style="text-align: center; margin-top: 20px;">
-            <img src="/media/barcode_1.png" alt="Invoice Barcode">
+        <!-- Transaction details here -->
+
+        <div style="text-align: center;">
+            {% if qr_code_base64 %}
+                <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code" style="border: 0.5px solid black; width: 100px; height: 100px;">
+            {% else %}
+                <p>No QR Code available</p>
+            {% endif %}
 
         </div>
+
+<!-- More transaction details here -->
+
+        
         
     </div>
 

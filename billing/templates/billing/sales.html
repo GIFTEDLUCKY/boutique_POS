@@ -36,7 +36,7 @@
                             data-tax="{{ product.tax }}" 
                             data-stock="{{ product.quantity }}"
                             data-expiry="{{ product.expiry_date|date:'Y-m-d' }}"> <!-- Added Expiry Date -->
-                            {{ product.name }} - GH₵{{ product.selling_price }}
+                            {{ product.name }} - GH₵ {{ product.selling_price }}
                         </option>
                     {% empty %}
                         <option disabled>No products available for this store</option>
@@ -105,7 +105,7 @@
 
                 <!-- Total and Checkout Section -->
                 <div class="mt-4">
-                    <h5>Total: <span id="total-amount">GH₵0.00</span></h5>
+                    <h5>Total: <span id="total-amount">GH₵ 0.00</span></h5>
                     <button class="btn btn-primary" id="generate_invoice_btn" onclick="checkout()">Generate Invoice</button>
                     <button type="button" id="resetCartButton" class="btn btn-danger">Reset Cart</button>
                 </div>
@@ -327,8 +327,8 @@ function addToCart() {
                 <tr>
                     <td>${item.name}</td>
                     <td>${item.quantity}</td>
-                    <td>GH₵${item.price.toFixed(2)}</td>  <!-- Corrected to GH₵ -->
-                    <td>GH₵${subtotal.toFixed(2)}</td>  <!-- Corrected to GH₵ -->
+                    <td>${item.price.toFixed(2)}</td>  <!-- Corrected to GH₵ -->
+                    <td>${subtotal.toFixed(2)}</td>  <!-- Corrected to GH₵ -->
                     <td>
                         <button class="btn btn-warning btn-sm" onclick="editQuantity(${index})">Edit</button>
                         <button class="btn btn-danger btn-sm" onclick="removeFromCart(${index})">Remove</button>
@@ -338,7 +338,7 @@ function addToCart() {
             cartBody.innerHTML += row;
         });
 
-        totalAmount.textContent = `GH₵${total.toFixed(2)}`;  // Corrected to GH₵
+        totalAmount.textContent = `GH₵ ${total.toFixed(2)}`;  // Corrected to GH₵
         document.getElementById('cart_data').value = JSON.stringify(cart);
     }
 
@@ -664,78 +664,75 @@ function addToCart() {
 Javascrip to display Warnng message for Low product
 -->
 <script>
-    document.getElementById('product_ids').addEventListener('change', function(e) {
-        for (let i = 0; i < e.target.selectedOptions.length; i++) {
-            let selectedOption = e.target.selectedOptions[i];
-            let stockLevel = selectedOption.getAttribute('data-stock');
-            
-            // Log stockLevel to check its value
-            console.log("Stock quantity:", stockLevel);
+    document.addEventListener("DOMContentLoaded", function () {
+        let productDropdown = document.getElementById('product_ids');
+        let today = new Date();
+        today.setHours(0, 0, 0, 0); // Normalize time for date comparison
 
-            // Check if the stockLevel is a valid number
-            stockLevel = parseInt(stockLevel);
+        // Loop through all dropdown options to process stock and expiry notifications
+        for (let i = 0; i < productDropdown.options.length; i++) {
+            let option = productDropdown.options[i];
+            let stockLevel = parseInt(option.getAttribute('data-stock'));
+            let expiryDateStr = option.getAttribute('data-expiry');
 
-            // If it's not a valid number, skip this option
-            if (isNaN(stockLevel)) {
-                console.log("Invalid stock quantity, skipping...");
-                continue;
+            // Handle out-of-stock products (disable + style)
+            if (stockLevel === 0) {
+                option.disabled = true;
+                option.classList.add('out-of-stock'); // Add class for styling
             }
 
-            // Define low stock threshold (10 or fewer)
-            var lowStockThreshold = 10;
+            // Handle expiry date notifications
+            if (expiryDateStr) {
+                let expiryDate = new Date(expiryDateStr);
+                let daysUntilExpiry = (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
-            if (stockLevel <= lowStockThreshold) {
-                // Display modal with the low stock warning
-                let message = "Warning: The selected product '" + selectedOption.text + "' is running low on stock (Only " + stockLevel + " left).";
+                if (daysUntilExpiry <= 30) {
+                    option.classList.add('near-expiry'); // Style near-expiry products
+                }
+                if (daysUntilExpiry < 0) {
+                    option.classList.add('expired'); // Style expired products
+                }
+            }
+        }
+
+        // Handle product selection events
+        productDropdown.addEventListener('change', function (e) {
+            let selectedOption = e.target.selectedOptions[0];
+            let stockLevel = parseInt(selectedOption.getAttribute('data-stock'));
+            let expiryDateStr = selectedOption.getAttribute('data-expiry');
+
+            // Out-of-stock alert
+            if (stockLevel === 0) {
+                alert("⚠️ This product is out of stock!");
+                productDropdown.value = ""; // Reset selection
+                return;
+            }
+
+            // Low stock warning (if stock is below 10)
+            if (stockLevel > 0 && stockLevel <= 10) {
+                let message = `⚠️ Warning: The selected product '${selectedOption.text}' is running low on stock (Only ${stockLevel} left).`;
                 document.getElementById('lowStockMessage').textContent = message;
                 new bootstrap.Modal(document.getElementById('lowStockModal')).show();
             }
-        }
-    });
 
-</script>
+            // Expiry date notifications
+            if (expiryDateStr) {
+                let expiryDate = new Date(expiryDateStr);
+                let daysUntilExpiry = (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
 
-<script>
-
-document.addEventListener("DOMContentLoaded", function () {
-    document.getElementById('product_ids').addEventListener('change', function(e) {
-        let today = new Date();
-        today.setHours(0, 0, 0, 0); // Remove time for accurate date comparison
-        
-        for (let i = 0; i < e.target.selectedOptions.length; i++) {
-            let selectedOption = e.target.selectedOptions[i];
-            let expiryDateStr = selectedOption.getAttribute('data-expiry'); // Get expiry date
-            
-            console.log("Expiry date:", expiryDateStr); // Debugging log
-            
-            if (!expiryDateStr) {
-                console.log("No expiry date found, skipping...");
-                continue;
-            }
-            
-            let expiryDate = new Date(expiryDateStr); // Convert string to Date
-            let timeDiff = expiryDate.getTime() - today.getTime(); // Difference in milliseconds
-            let daysUntilExpiry = timeDiff / (1000 * 60 * 60 * 24); // Convert to days
-
-            let expiryThreshold = 30; // Notify if expiry is within 30 days
-
-            if (daysUntilExpiry <= expiryThreshold) {  
-                let message = `⚠️ Warning: The selected product '${selectedOption.text}' is expiring soon (Expiry Date: ${expiryDateStr}).`;
-
-                if (daysUntilExpiry < 0) {
-                    message = `❌ Alert: The selected product '${selectedOption.text}' has already expired (Expiry Date: ${expiryDateStr}).`;
+                if (daysUntilExpiry <= 30) {
+                    let message = `⚠️ Warning: '${selectedOption.text}' is expiring soon (Expiry Date: ${expiryDateStr}).`;
+                    if (daysUntilExpiry < 0) {
+                        message = `❌ Alert: '${selectedOption.text}' has already expired (Expiry Date: ${expiryDateStr}).`;
+                    }
+                    document.getElementById('expiryMessage').textContent = message;
+                    new bootstrap.Modal(document.getElementById('expiryModal')).show();
                 }
-
-                document.getElementById('expiryMessage').textContent = message;
-                
-                let expiryModal = new bootstrap.Modal(document.getElementById('expiryModal'));
-                expiryModal.show();
             }
-        }
+        });
     });
-});
-
 </script>
+
 <!--==================================================
 Back button to clear cart
 -->
@@ -765,20 +762,56 @@ window.addEventListener('pageshow', function(event) {
 });
 
 
+document.addEventListener("DOMContentLoaded", function () {
+    let productDropdown = document.getElementById('product_ids');
+
+    // Re-focus the dropdown after modal closes
+    let modals = ['lowStockModal', 'expiryModal'];
+
+    modals.forEach(modalId => {
+        let modal = document.getElementById(modalId);
+        modal.addEventListener('hidden.bs.modal', function () {
+            productDropdown.focus(); // Set focus back to the dropdown
+        });
+    });
+});
+
+
+
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            setTimeout(() => {
+                document.body.classList.remove('modal-open'); // Fixes scrolling issue
+                let backdrop = document.querySelector('.modal-backdrop');
+                if (backdrop) backdrop.remove(); // Remove backdrop if it remains
+            }, 300);
+        });
+    });
+});
+
+
+    // Also fix scrolling when modal is fully hidden
+    document.querySelectorAll('.modal').forEach(function (modal) {
+        modal.addEventListener('hidden.bs.modal', function () {
+            document.body.style.overflow = "auto"; // Ensure scrolling is back
+        });
+    });
+
+
 </script>
 
 
 
-<!-- Include jQuery -->
-<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-<!-- Bootstrap JS (Make sure this is included before your custom JS) -->
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<!-- Load local jQuery -->
+<script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
 
+<!-- Load local Bootstrap -->
+<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 
-<!-- other body content -->
-
+<!-- Your custom script -->
 <script src="{% static 'js/script.js' %}"></script>
-</body>
+
 
 
 </body>

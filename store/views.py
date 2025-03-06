@@ -152,7 +152,10 @@ def add_product(request):
          form = ProductForm(request.POST)
          if form.is_valid():
              form.save()
+             messages.success(request, "Product added successfully!")  # ✅ Success message
              return redirect('store:add_product')
+         else:
+             messages.error(request, "Error adding product. Please check the form.")  # ❌ Error message
      else:
          form = ProductForm()
 
@@ -169,6 +172,7 @@ def add_product(request):
          'search_field': search_field,
          'search_value': search_value
      })
+
 
 
 # Edit Product View
@@ -208,9 +212,6 @@ from .forms import StaffForm
 from .models import Staff
 from django.db.models import Q  # for search functionality
 
-from django.shortcuts import render, redirect
-from .forms import StaffForm
-from .models import Staff
 from accounts.models import UserProfile
 
 def add_staff(request):
@@ -257,17 +258,23 @@ from django.shortcuts import get_object_or_404, redirect, render
 from .forms import StaffForm  # Ensure this is the correct form
 from .models import Staff
 
+
 def edit_staff(request, staff_id):
     staff = get_object_or_404(Staff, id=staff_id)
+    
     if request.method == 'POST':
         form = StaffForm(request.POST, instance=staff)
         if form.is_valid():
             form.save()
-            return redirect('store:add_staff')  # Redirect to staff list after saving
+            messages.success(request, "Staff details updated successfully!")
+            return redirect('store:add_staff')  # Redirect to staff list
+        else:
+            messages.error(request, "Error updating staff details. Please check the form.")
+
     else:
         form = StaffForm(instance=staff)
-    return render(request, 'store/edit_staff.html', {'form': form})
 
+    return render(request, 'store/edit_staff.html', {'form': form, 'staff': staff})
 
 # View for displaying staff members of a store
 def staff_list(request):
@@ -303,14 +310,11 @@ def category_list(request):
 
 
 # Add Supplier View
-from django.shortcuts import render
-from .models import Supplier
-
 from django.shortcuts import render, redirect
 from .models import Supplier
 from .forms import SupplierForm
 from django.contrib.auth.decorators import login_required
-
+from django.contrib import messages
 
 @login_required
 def add_supplier(request):
@@ -318,7 +322,11 @@ def add_supplier(request):
         form = SupplierForm(request.POST)
         if form.is_valid():
             form.save()
+            messages.success(request, "Supplier added successfully!")  # ✅ Success message
             return redirect('store:add_supplier')  # Redirect to the same page after saving
+        else:
+            messages.error(request, "Error adding supplier. Please check the form.")  # ❌ Error message
+
     else:
         form = SupplierForm()
 
@@ -351,8 +359,11 @@ def edit_supplier(request, pk):
         form = SupplierForm(request.POST, instance=supplier)
         if form.is_valid():
             form.save()
-            messages.success(request, "Supplier updated successfully!")
-            return redirect('store:add_supplier')
+            messages.success(request, "Supplier updated successfully!")  # ✅ Success message
+            return redirect('store:add_supplier')  # Redirect to the supplier list page
+        else:
+            messages.error(request, "Error updating supplier. Please check the form.")  # ❌ Error message
+
     else:
         form = SupplierForm(instance=supplier)
 
@@ -362,21 +373,25 @@ def edit_supplier(request, pk):
     }
     return render(request, 'store/edit_supplier.html', context)
 
+
 # Delete Supplier View
+@login_required
 def delete_supplier(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk)
+    
     if request.method == 'POST':
-        supplier.delete()
-        messages.success(request, "Supplier deleted successfully!")
+        try:
+            supplier.delete()
+            messages.success(request, "Supplier deleted successfully!")  # ✅ Success message
+        except Exception as e:
+            messages.error(request, f"Error deleting supplier: {e}")  # ❌ Error message
+        
         return redirect('store:add_supplier')
 
     context = {
         'supplier': supplier,
     }
     return render(request, 'store/confirm_delete.html', context)
-
-
-from django.contrib.auth.decorators import login_required
 
 
 @login_required
@@ -388,7 +403,11 @@ def add_category(request):
         form = CategoryForm(request.POST)
         if form.is_valid():
             form.save()
+            messages.success(request, "Category added successfully!")  # ✅ Success message
             return redirect('store:add_category')  # Redirect to the same page after form submission
+        else:
+            messages.error(request, "Error adding category. Please check the form.")  # ❌ Error message
+
     else:
         form = CategoryForm()
 
@@ -397,6 +416,7 @@ def add_category(request):
 from django.http import HttpResponse
 
 # Edit Category View
+@login_required
 def edit_category(request, category_id):
     category = get_object_or_404(Category, id=category_id)
 
@@ -404,7 +424,11 @@ def edit_category(request, category_id):
         form = CategoryForm(request.POST, instance=category)
         if form.is_valid():
             form.save()
+            messages.success(request, "Category updated successfully!")  # ✅ Success message
             return redirect('store:add_category')  # Redirect back to the category list page
+        else:
+            messages.error(request, "Error updating category. Please check the form.")  # ❌ Error message
+
     else:
         form = CategoryForm(instance=category)
 
@@ -416,40 +440,59 @@ def edit_category(request, category_id):
 from django.http import JsonResponse
 from django.shortcuts import get_object_or_404
 from .models import Category  
+from django.views.decorators.csrf import csrf_exempt
 
+@csrf_exempt  # Only needed if handling AJAX requests without CSRF token (not recommended in production)
 def delete_category(request):
     if request.method == "POST":
         category_id = request.POST.get("category_id", "").strip()
+        
+        if not category_id:
+            return JsonResponse({"error": "Category ID is required"}, status=400)
+
         category = get_object_or_404(Category, id=category_id)
-        category.delete()
-        return JsonResponse({"success": True})  # No extra logs
+        
+        try:
+            category.delete()
+            return JsonResponse({"success": True, "message": "Category deleted successfully!"})
+        except Exception as e:
+            return JsonResponse({"error": f"Error deleting category: {str(e)}"}, status=500)
 
     return JsonResponse({"error": "Invalid request"}, status=400)
 
 
 
 
-# View for adding or editing a store
 def edit_store(request, pk=None):
-    if pk:
-        store = get_object_or_404(Store, pk=pk)
-        form = StoreForm(request.POST or None, instance=store)
-    else:
-        form = StoreForm(request.POST or None)
+    store = get_object_or_404(Store, pk=pk) if pk else None
+    form = StoreForm(request.POST or None, instance=store)
 
-    if request.method == 'POST' and form.is_valid():
-        form.save()
-        return redirect('store:add_store')
+    if request.method == 'POST':
+        if form.is_valid():
+            form.save()
+            if pk:
+                messages.success(request, "Store updated successfully!")
+            else:
+                messages.success(request, "New store added successfully!")
+            return redirect('store:add_store')
+        else:
+            messages.error(request, "Error processing the form. Please check your inputs.")
 
     stores = Store.objects.all()
-    return render(request, 'store/add_store.html', {'form': form, 'stores': stores})
+    return render(request, 'store/add_store.html', {'form': form, 'stores': stores, 'store': store})
 
-# Delete Store view
+
+
 def delete_store(request, pk):
     store = get_object_or_404(Store, pk=pk)
-    store.delete()
-    return redirect('store:add_store')
+    
+    if request.method == "POST":  # Ensures deletion is intentional
+        store.delete()
+        messages.success(request, "Store deleted successfully!")
+        return redirect('store:add_store')
 
+    messages.error(request, "Invalid request. Store could not be deleted.")
+    return redirect('store:add_store')
 
 from django.shortcuts import render
 from django.db.models import Q
@@ -542,12 +585,6 @@ def store_sales(request):
 
 
 
-from django.shortcuts import render
-from .models import Product
-
-def product_list(request):
-    products = Product.objects.all()
-    return render(request, 'store/product_list.html', {'products': products})
 
 # store/views.py
 from django.shortcuts import render, redirect, get_object_or_404
@@ -558,19 +595,23 @@ from django.contrib.auth.decorators import login_required
 
 @login_required
 def add_store(request, store_id=None):
-    # If store_id is provided, fetch the store for editing
     store = get_object_or_404(Store, id=store_id) if store_id else None
 
-    # Handle form submission
     if request.method == 'POST':
         form = StoreForm(request.POST, instance=store)
         if form.is_valid():
+            if store:
+                messages.success(request, "Store updated successfully!")
+            else:
+                messages.success(request, "New store added successfully!")
             form.save()
             return redirect('store:add_store')  # Redirect to clear the form
+        else:
+            messages.error(request, "Error saving store. Please check the form.")
+
     else:
         form = StoreForm(instance=store)
 
-    # Fetch all stores for the table
     stores = Store.objects.all()
 
     return render(request, 'store/add_store.html', {
@@ -578,8 +619,6 @@ def add_store(request, store_id=None):
         'store': store,
         'stores': stores,
     })
-
-
 
 
 

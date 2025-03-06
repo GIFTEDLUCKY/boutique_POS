@@ -37,6 +37,9 @@ urlpatterns = [
     # Product-related URLs
     path('products/', include('store.urls', namespace='products')),  # Products fall under store app
 
+    # Product-related URLs
+    path('inventory/', include('inventory.urls', namespace='inventory')),  # Products fall under store app
+
     # Billing-related URLs
     path('billing/', include('billing.urls')),
 

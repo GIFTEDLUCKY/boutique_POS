@@ -1,0 +1,20 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <div class="row justify-content-center">
+        <div class="col-md-6">
+            <div class="border p-4 shadow-sm rounded text-center">
+                <h3>Are you sure you want to delete this stock?</h3>
+                <p><strong>{{ stock.product.name }}</strong> with quantity <strong>{{ stock.quantity }}</strong></p>
+
+                <form method="post">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger btn-lg">Yes, Delete</button>
+                    <a href="{% url 'inventory:add_stock' %}" class="btn btn-secondary btn-lg ms-3">Cancel</a>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

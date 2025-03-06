@@ -16,3 +16,7 @@ __pycache__/
 
 # Ignore Django migration cache (optional)
 **/migrations/__pycache__/
+
+# Ignore dynamically generated media files
+media/qrcodes/*
+media/receipts/*

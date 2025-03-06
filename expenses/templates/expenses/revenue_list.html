@@ -2,6 +2,9 @@
 
 {% block content %}
   <h1>Revenue List</h1>
+
+  <a href="{% url 'expenses:add_revenue' %}" class="btn btn-primary">Return to Add Revenue</a>
+
   
   <h4>Total Revenue: GH₵ <span id="totalRevenue">{{ total_revenue }}</span></h4>
 

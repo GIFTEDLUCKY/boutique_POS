@@ -1,0 +1,124 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+
+
+<h2>Stock Transferred</h2>
+
+<!-- Filter Inputs -->
+<div class="mb-3 d-flex gap-2">
+    <label for="startDate">Start_Date:</label>
+    <input type="date" id="startDate" class="form-control">
+    
+    <label for="endDate">End_Date:</label>
+    <input type="date" id="endDate" class="form-control">
+
+    <button class="btn btn-primary" onclick="filterTable()">Filter</button>
+</div>
+
+<!-- Table Column Search -->
+<div class="mb-3 d-flex gap-2">
+    <select id="columnSelect" class="form-control">
+        <option value="all">All Columns</option>
+        <option value="0">Product</option>
+        <option value="1">Quantity</option>
+        <option value="2">To Store</option>
+        <option value="3">Transferred At</option>
+    </select>
+    <input type="text" id="columnSearch" class="form-control" placeholder="Search...">
+    <button class="btn btn-secondary" onclick="filterTable()">Search</button>
+    <button class="btn btn-warning" id="resetButton">Reset</button> <!-- ✅ Fixed: Added id="resetButton" -->
+</div>
+
+<table class="table" id="stockTransfersTable">
+    <thead>
+        <tr>
+            <th>Product</th>
+            <th>Quantity</th>
+            <th>Destination Store</th>
+            <th>Transferred At</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for transfer in stock_transfers %}
+        <tr>
+            <td>{{ transfer.product }}</td>
+            <td>{{ transfer.quantity }}</td>
+            <td>{{ transfer.destination_store }}</td>
+            <td>{{ transfer.transfer_date|date:"Y-m-d H:i" }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    let startDate = document.getElementById("startDate");
+    let endDate = document.getElementById("endDate");
+    let columnSelect = document.getElementById("columnSelect");
+    let columnSearch = document.getElementById("columnSearch");
+    let table = document.getElementById("stockTransfersTable");
+    let rows = table.getElementsByTagName("tr");
+    let resetButton = document.getElementById("resetButton"); // ✅ Fixed: Now it exists
+
+    function filterTable() {
+        let searchColumn = columnSelect.value;
+        let searchText = columnSearch.value.toLowerCase();
+        let startDateValue = startDate.value;
+        let endDateValue = endDate.value;
+
+        for (let i = 1; i < rows.length; i++) { // Skip header
+            let cells = rows[i].getElementsByTagName("td");
+            let rowText = "";
+            let dateMatch = true;
+            let searchMatch = false;
+            let dateColumn = cells[3]?.textContent.trim(); // Date column
+
+            // Date filtering
+            if (startDateValue && dateColumn < startDateValue) dateMatch = false;
+            if (endDateValue && dateColumn > endDateValue) dateMatch = false;
+
+            // Column filtering
+            if (searchColumn === "all") {
+                for (let j = 0; j < cells.length; j++) {
+                    rowText += cells[j].textContent.toLowerCase();
+                }
+                searchMatch = rowText.includes(searchText);
+            } else {
+                searchMatch = cells[searchColumn]?.textContent.toLowerCase().includes(searchText);
+            }
+
+            // Show row if both conditions are met
+            rows[i].style.display = (dateMatch && searchMatch) ? "" : "none";
+        }
+    }
+
+    function resetFilters() {
+        console.log("Reset button clicked!"); // Debugging log
+        startDate.value = "";
+        endDate.value = "";
+        columnSelect.value = "all";
+        columnSearch.value = "";
+
+        // Show all rows
+        for (let i = 1; i < rows.length; i++) {
+            rows[i].style.display = "";
+        }
+    }
+
+    // Attach event listeners
+    columnSearch.addEventListener("keyup", filterTable);
+    startDate.addEventListener("change", filterTable);
+    endDate.addEventListener("change", filterTable);
+
+    if (resetButton) {
+        resetButton.addEventListener("click", resetFilters);
+    }
+});
+</script>
+
+<!-- Return to Stock Transfer Page Button -->
+<a href="{% url 'inventory:stock_transfer_form' %}" class="btn btn-primary mt-3">Return to Stock Transfer</a>
+
+{% endblock %}

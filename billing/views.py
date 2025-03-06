@@ -10,9 +10,9 @@ from store.models import Product, Store
 from accounts.models import UserProfile
 from .models import Cart, CartItem, TransactionInvoice, CustomerInvoice
 from .utils import get_total_transaction_value
-
-
-
+from io import BytesIO
+import base64
+from django.urls import reverse
 
 from decimal import Decimal
 
@@ -38,7 +38,7 @@ def invoice_receipt(request, invoice_id):
     # If cart_id is not available, redirect back to the sales page
     if not cart_id:
         messages.error(request, "Cart ID not found")
-        return redirect('billing:sales_view')  # Redirect to sales page if cart_id is not found
+        return redirect('billing:sales_view')
 
     # Fetch the invoice and transaction items
     customer_invoice = get_object_or_404(CustomerInvoice, id=invoice_id)
@@ -51,19 +51,18 @@ def invoice_receipt(request, invoice_id):
     # Get the first transaction (assuming all have the same customer_name & payment_method)
     transaction = cart_items.first()
     payment_method_display = transaction.get_payment_method_display() if transaction else "N/A"
-   
 
     # Calculate subtotal
     subtotal = sum(item.subtotal for item in cart_items)
 
     # Fetch tax rate and discount rate from TaxAndDiscount model
-    settings = TaxAndDiscount.objects.first()
-    tax_rate = settings.tax if settings else Decimal('0.00')  # Default tax to 0.00 if not found
-    discount_rate = settings.discount if settings and hasattr(settings, 'discount') else Decimal('0.00')
+    tax_discount_settings = TaxAndDiscount.objects.first()
+    tax_rate = tax_discount_settings.tax if tax_discount_settings else Decimal('0.00')
+    discount_rate = tax_discount_settings.discount if tax_discount_settings else Decimal('0.00')
 
     # Calculate discount and tax
-    discount = subtotal * discount_rate / Decimal('100')  # Apply discount rate to subtotal
-    tax = (subtotal - discount) * tax_rate / Decimal('100')  # Apply tax after discount
+    discount = subtotal * discount_rate / Decimal('100')
+    tax = (subtotal - discount) * tax_rate / Decimal('100')
 
     # Calculate total
     total = subtotal - discount + tax
@@ -73,21 +72,32 @@ def invoice_receipt(request, invoice_id):
     store_info = {
         'name': store.name,
         'location': store.location,
-        'manager_name': store.manager_name,
+        'manager_name': store.manager,
     }
 
-    # Context for the template
+    # QR Code Logic
+    invoice_url = request.build_absolute_uri(reverse('billing:invoice_receipt', args=[invoice_id]))
+
+    # Create QR code with the full URL
+    local_ip = "192.168.74.238"  # Replace with your actual local IP
+    qr = qrcode.make(f"http://{local_ip}:8000/billing/invoice_receipt/{invoice_id}")
+
+    buffer = BytesIO()
+    qr.save(buffer, format="PNG")
+    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+        # Context for the template
     context = {
         "username": username,
         "store_info": store_info,
         "customer_invoice": customer_invoice,
         "cart_items": cart_items,
-        "transaction": transaction,  # Add this line to explicitly pass transaction details
+        "transaction": transaction,
         "subtotal": subtotal.quantize(Decimal('0.01')),
         "discount": discount.quantize(Decimal('0.01')),
         "tax": tax.quantize(Decimal('0.01')),
         "total": total.quantize(Decimal('0.01')),
-        "payment_method_display": payment_method_display
+        "payment_method_display": payment_method_display,
+        "qr_code_base64": qr_base64  # Add Base64 QR Code to template
     }
 
     return render(request, 'billing/invoice_receipt.html', context)
@@ -113,12 +123,6 @@ from billing.models import Invoice, InvoiceItem
 from accounts.models import UserProfile
 import json
 
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from .models import Product, CustomerInvoice, InvoiceItem
-import json
-
-from django.contrib.auth.decorators import login_required
 
 @login_required
 def sales_view(request):
@@ -408,6 +412,7 @@ def generate_invoice(request, invoice_id=None):
         messages.error(request, "No cart found for this session.")
         return redirect('billing:sales_view')
 
+    
     customer_invoice = None
     if invoice_id:
         customer_invoice = get_object_or_404(CustomerInvoice, id=invoice_id)
@@ -492,10 +497,12 @@ def generate_invoice(request, invoice_id=None):
 
         customer_invoice.total_amount = total_amount
         customer_invoice.save()
+        qr_code_path = generate_qr_code(cart_id)
 
         # 
         return JsonResponse({
             'invoice_id': customer_invoice.id,
+             'qr_code_path': qr_code_path  # ✅ Include QR code in response
           
         })
 
@@ -1017,10 +1024,12 @@ def transaction_search(request):
 
 # views.py
 
+import qrcode
+from io import BytesIO
+import base64
 from django.shortcuts import render
-from .models import TransactionInvoice, Store
+from .models import TransactionInvoice
 import json
-from decimal import Decimal  # Import Decimal
 
 def re_print_invoice(request):
     if request.method == "POST":
@@ -1038,16 +1047,27 @@ def re_print_invoice(request):
                 tax = sum(item.tax for item in transactions) 
                 total = subtotal - discount + tax
 
+                # Generate QR code as done in the invoice_receipt view
+                invoice_url = request.build_absolute_uri(reverse('billing:re_print_invoice'))
+                local_ip = "192.168.74.238"  # Replace with your actual local IP
+                qr = qrcode.make(f"http://{local_ip}:8000/billing/re_print_invoice/{cart_id}")
+
+                buffer = BytesIO()
+                qr.save(buffer, format="PNG")
+                qr_base64 = base64.b64encode(buffer.getvalue()).decode()
+
                 return render(request, 'billing/re_print_invoice.html', {
                     'cart_items': transactions,
                     'subtotal': subtotal,
                     'discount': discount,
                     'tax': tax,
                     'total': total,
+                    'qr_code_base64': qr_base64,  # Pass the QR code to the template
                 })
             else:
                 return render(request, 'billing/re_print_invoice.html', {'error': 'No transactions found.'})
     return render(request, 'billing/re_print_invoice.html', {'error': 'No cart ID provided.'})
+
 
 
 from django.shortcuts import render, redirect
@@ -1062,5 +1082,53 @@ def reset_sales_page(request):
     return redirect('billing:sales_view')  # Ensure 'sales' is the name of your URL pattern for sales.html
 
 
+import qrcode
+from django.conf import settings
+from django.shortcuts import render, get_object_or_404
+from .models import TransactionInvoice
+import os
 
 
+def generate_qr_code(cart_id):
+    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)  # Ensure media folder exists
+
+    file_name = f"qr_code_{cart_id}.png"
+    file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+
+    # Generate and save the QR code
+    qr = qrcode.make(cart_id)
+    qr.save(file_path)
+
+    # Debugging: Check if file exists
+    if os.path.exists(file_path):
+        print(f"✅ QR Code successfully created: {file_path}")
+        return file_name  # Return only file name, not full path
+    else:
+        print("❌ Failed to create QR Code!")
+        return ""  # Return empty string to avoid issues
+
+def transaction_receipt(request, transaction_id):
+    from django.utils.safestring import mark_safe  # For safe URL handling
+
+    # Get the transaction data
+    transaction = get_object_or_404(TransactionInvoice, id=transaction_id)
+
+    # Generate the QR code for this transaction
+    cart_id = transaction.cart_id
+    qr_code_file = generate_qr_code(cart_id)
+
+    # Construct the correct URL for the QR code
+    qr_code_url = settings.MEDIA_URL + os.path.basename(qr_code_file) if qr_code_file else ""
+
+    # Debugging: Print values in terminal
+    print(f"Transaction ID: {transaction_id}")
+    print(f"Cart ID: {cart_id}")
+    print(f"QR Code File Path: {qr_code_file}")
+    print(f"Generated QR Code URL: {qr_code_url}")
+
+    # Pass the QR code URL to the template
+    return render(request, 'billing/invoice_receipt.html', {
+        'transaction': transaction,
+        'qr_code_url': mark_safe(qr_code_url),  # Prevent escaping of URL
+        'media_url': settings.MEDIA_URL
+    })

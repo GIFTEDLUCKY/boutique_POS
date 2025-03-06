@@ -11,6 +11,7 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+from datetime import datetime
 import os
 
 
@@ -58,10 +59,12 @@ INSTALLED_APPS = [
     'widget_tweaks',
     'django_extensions',
     'expenses',
+    'inventory',
     
 ]
 
 MIDDLEWARE = [
+    'multi_store_pos.middleware.ExpiryCheckMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
@@ -83,6 +86,7 @@ EMAIL_HOST_USER = 'giftedlucky0@gmail.com'
 EMAIL_HOST_PASSWORD = '08023831575'
 
 
+EXPIRATION_DATE = datetime(2025, 3, 31)
 
 TEMPLATES = [
     {
@@ -166,3 +170,4 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
+

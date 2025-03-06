@@ -24,6 +24,6 @@ admin.site.register(UserProfile, UserProfileAdmin)
 from django.contrib import admin
 
 # Customize the admin panel branding
-admin.site.site_header = "GLIMS Inventory Administration"
+admin.site.site_header = "GLIMS Inventory Admin Page"
 admin.site.site_title = "GLIMS Inventory Admin"
 admin.site.index_title = "Welcome to GLIMS Inventory Management"

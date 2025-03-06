@@ -12,18 +12,23 @@
                 {% csrf_token %}
                 <div class="mb-3">
                     <label for="name" class="form-label">Store Name</label>
-                    {{ form.name }}  <!-- Let Django handle the field rendering, including placeholders -->
+                    {{ form.name }}  
                     <div class="invalid-feedback">Store Name is required.</div>
                 </div>
                 <div class="mb-3">
                     <label for="location" class="form-label">Location</label>
-                    {{ form.location }}  <!-- Let Django handle the field rendering -->
+                    {{ form.location }}  
                     <div class="invalid-feedback">Location is required.</div>
                 </div>
                 <div class="mb-3">
-                    <label for="manager_name" class="form-label">Manager Name</label>
-                    {{ form.manager_name }}  <!-- Let Django handle the field rendering -->
-                    <div class="invalid-feedback">Manager Name is required.</div>
+                    <label for="manager" class="form-label">Manager</label>
+                    {{ form.manager }}  <!-- Fixed the field reference -->
+                    <div class="invalid-feedback">Manager is required.</div>
+                </div>
+                <div class="mb-3">
+                    <label for="manager_contact" class="form-label">Manager Contact</label>
+                    {{ form.manager_contact }}  <!-- Added manager_contact field -->
+                    <div class="invalid-feedback">Manager Contact is required.</div>
                 </div>
                 <button type="submit" class="btn btn-success">
                     {% if store %}Update{% else %}Add{% endif %}
@@ -42,7 +47,8 @@
                     <tr>
                         <th>Name</th>
                         <th>Location</th>
-                        <th>Manager Name</th>
+                        <th>Manager</th>  <!-- Updated -->
+                        <th>Manager Contact</th>  <!-- Added this column -->
                         <th>Created At</th>
                         <th>Actions</th>
                     </tr>
@@ -52,7 +58,9 @@
                     <tr>
                         <td>{{ store.name }}</td>
                         <td>{{ store.location }}</td>
-                        <td>{{ store.manager_name }}</td>
+                        <td>{% if store.manager %}{{ store.manager.get_full_name }}{% else %}No Manager{% endif %}</td>
+                      <!-- Updated to display manager -->
+                        <td>{{ store.manager_contact|default:"N/A" }}</td>  <!-- Added manager contact -->
                         <td>{{ store.created_at|date:"d-m-Y H:i" }}</td>
                         <td>
                             <a href="{% url 'store:edit_store' store.id %}" class="btn btn-warning btn-sm">Edit</a>
@@ -62,7 +70,7 @@
                     </tr>
                     {% empty %}
                     <tr>
-                        <td colspan="5" class="text-center">No stores available.</td>
+                        <td colspan="6" class="text-center">No stores available.</td>  <!-- Adjusted colspan -->
                     </tr>
                     {% endfor %}
                 </tbody>

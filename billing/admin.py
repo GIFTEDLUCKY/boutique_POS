@@ -50,3 +50,5 @@ class CartItemAdmin(admin.ModelAdmin):
     def subtotal(self, obj):
         return obj.subtotal()
     subtotal.short_description = "Item Subtotal"
+
+
