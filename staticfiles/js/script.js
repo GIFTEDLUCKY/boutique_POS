@@ -98,16 +98,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
 
 
-// Export the filtered transactions to Excel
-function exportToExcel(transactions) {
-    var wb = XLSX.utils.json_to_sheet(transactions);
-    var ws = XLSX.utils.book_new();
-    XLSX.utils.book_append_sheet(ws, wb, "Transactions");
-    XLSX.writeFile(ws, "transactions.xlsx");
-}
-
-
-
 
 // Event listeners
 document.addEventListener("DOMContentLoaded", function() {
@@ -141,6 +131,7 @@ document.addEventListener("DOMContentLoaded", function() {
         });
     }
 });
+
 
 
 
@@ -240,6 +231,14 @@ function updateTableWithFilteredData(transactions) {
     });
 }
 
+
+// Export the filtered transactions to Excel
+function exportToExcel(transactions) {
+    var wb = XLSX.utils.json_to_sheet(transactions);
+    var ws = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(ws, wb, "Transactions");
+    XLSX.writeFile(ws, "transactions.xlsx");
+}
 
 
 

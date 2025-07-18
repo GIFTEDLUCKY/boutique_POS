@@ -1,13 +1,19 @@
 from django import forms
-from store.models import Product, StoreProduct  
+from django.db.models import Min
+from store.models import Product  
 from .models import WarehouseStock  
 
 class WarehouseStockForm(forms.ModelForm):
-    # Ensure only unique master products appear in the dropdown
+    # Get unique product IDs by selecting the lowest product_id for each product name
+    unique_product_ids = (
+        Product.objects.values('name')  # Group by name
+        .annotate(product_id=Min('id'))  # Get the lowest product_id per name
+        .values_list('product_id', flat=True)  # Extract product_id values
+    )
+
+    # Ensure Product queryset only has distinct product names
     product = forms.ModelChoiceField(
-        queryset=Product.objects.filter(
-            id__in=StoreProduct.objects.values_list('master_product_id', flat=True)
-        ).distinct().order_by('name'),  
+        queryset=Product.objects.filter(id__in=unique_product_ids).order_by('name'),
         label="Select Product",
         widget=forms.Select(attrs={'class': 'form-control'})
     )
@@ -21,14 +27,19 @@ class WarehouseStockForm(forms.ModelForm):
     class Meta:
         model = WarehouseStock
         fields = ['product', 'quantity']
+
+
+
+
+
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import StockTransfer, WarehouseStock, Requisition, StoreProduct
+from .models import StockTransfer, WarehouseStock, Requisition, RequisitionItem, StoreProduct
 
 class StockTransferForm(forms.ModelForm):
     requisition = forms.ModelChoiceField(
         queryset=Requisition.objects.filter(status="Approved"),
-        required=False,
+        required=True,
     )
 
     product = forms.ModelChoiceField(
@@ -60,7 +71,7 @@ class StockTransferForm(forms.ModelForm):
             self.fields['requisition'].widget.attrs['readonly'] = True
 
     def clean(self):
-        """Validate requisition and stock availability"""
+        """Validate requisition item approval and stock availability"""
         cleaned_data = super().clean()
         requisition = cleaned_data.get("requisition")
         product = cleaned_data.get("product")
@@ -70,15 +81,24 @@ class StockTransferForm(forms.ModelForm):
             self.add_error("requisition", "Requisition is required.")
 
         if product:
+            # Validate that the requisition item is approved
+            requisition_item = RequisitionItem.objects.filter(
+                requisition=requisition,
+                product=product.product,
+                status="Approved"  # Ensure item itself is approved
+            ).first()
+
+            if not requisition_item:
+                self.add_error("product", f"Product {product.product.name} is not approved for transfer.")
+
+            elif requisition_item.approved_quantity < quantity:
+                self.add_error("quantity", f"Cannot transfer more than approved quantity ({requisition_item.approved_quantity}).")
+
             # Validate stock availability in WarehouseStock
             warehouse_stock = WarehouseStock.objects.filter(product=product.product).first()
-
-            if warehouse_stock and warehouse_stock.quantity >= quantity:
-                # Stock is available
-                pass
-            else:
+            if warehouse_stock and warehouse_stock.quantity < quantity:
                 self.add_error("quantity", f"Not enough stock for {product.product.name} in warehouse.")
-        
+
         return cleaned_data
 
     def save(self, commit=True):
@@ -157,3 +177,15 @@ class RequisitionItemForm(forms.ModelForm):
         if not product:
             raise forms.ValidationError("This field is required.")
         return product
+    
+
+    
+
+from django import forms
+
+class RequisitionSearchForm(forms.Form):
+    requisition_number = forms.CharField(
+        label="Requisition Number",
+        max_length=20,
+        widget=forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Enter requisition number'})
+    )

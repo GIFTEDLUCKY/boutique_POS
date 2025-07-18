@@ -30,195 +30,192 @@ def cart_view(request):
 
 
 
+
+# billing/views.py
+
+import json
+import base64
+import qrcode
+from io import BytesIO
+from decimal import Decimal
+
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.urls import reverse
+from django.contrib.auth.decorators import login_required
+
+from .models import CustomerInvoice, TransactionInvoice
+from store.models import TaxAndDiscount, Product
+
+
+@login_required
 def invoice_receipt(request, invoice_id):
-    # Retrieve the cart_id from the session
-    cart_id = request.session.get('cart_id')
-    print(f"Cart ID from session: {cart_id}")  # Debugging output
+    # 🔁 Get the return URL (default to sales_view)
+    next_url = request.GET.get('next', reverse('billing:sales_view'))
 
-    # If cart_id is not available, redirect back to the sales page
-    if not cart_id:
-        messages.error(request, "Cart ID not found")
-        return redirect('billing:sales_view')
-
-    # Fetch the invoice and transaction items
     customer_invoice = get_object_or_404(CustomerInvoice, id=invoice_id)
-    cart_items = TransactionInvoice.objects.filter(cart_id=cart_id)
+    cart_items = TransactionInvoice.objects.filter(customer_invoice=customer_invoice)
 
     if not cart_items.exists():
         messages.error(request, "No items found for this invoice!")
         return redirect('billing:sales_view')
 
-    # Get the first transaction (assuming all have the same customer_name & payment_method)
-    transaction = cart_items.first()
-    payment_method_display = transaction.get_payment_method_display() if transaction else "N/A"
-
-    # Calculate subtotal
+    payment_method_display = customer_invoice.get_payment_method_display()
     subtotal = sum(item.subtotal for item in cart_items)
+    total_discount = sum(item.discount for item in cart_items)
+    total_tax = sum(item.tax for item in cart_items)
+    final_total = customer_invoice.final_total or (subtotal - total_discount + total_tax)
+    amount_paid = customer_invoice.amount_paid or Decimal('0.00')
+    change = amount_paid - final_total
 
-    # Fetch tax rate and discount rate from TaxAndDiscount model
-    tax_discount_settings = TaxAndDiscount.objects.first()
-    tax_rate = tax_discount_settings.tax if tax_discount_settings else Decimal('0.00')
-    discount_rate = tax_discount_settings.discount if tax_discount_settings else Decimal('0.00')
+    invoice_url = request.build_absolute_uri(
+        reverse('billing:invoice_receipt', args=[invoice_id])
+    )
+    qr_img = qrcode.make(invoice_url)
+    buffer = BytesIO()
+    qr_img.save(buffer, format="PNG")
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
 
-    # Calculate discount and tax
-    discount = subtotal * discount_rate / Decimal('100')
-    tax = (subtotal - discount) * tax_rate / Decimal('100')
-
-    # Calculate total
-    total = subtotal - discount + tax
-
-    username = request.user.username
-    store = transaction.store
+    store = customer_invoice.store
     store_info = {
-        'name': store.name,
+        'store_name': store.name,
         'location': store.location,
         'manager_name': store.manager,
+        'manager_contact': store.manager_contact,
     }
 
-    # QR Code Logic
-    invoice_url = request.build_absolute_uri(reverse('billing:invoice_receipt', args=[invoice_id]))
-
-    # Create QR code with the full URL
-    local_ip = "192.168.74.238"  # Replace with your actual local IP
-    qr = qrcode.make(f"http://{local_ip}:8000/billing/invoice_receipt/{invoice_id}")
-
-    buffer = BytesIO()
-    qr.save(buffer, format="PNG")
-    qr_base64 = base64.b64encode(buffer.getvalue()).decode()
-        # Context for the template
     context = {
-        "username": username,
-        "store_info": store_info,
-        "customer_invoice": customer_invoice,
-        "cart_items": cart_items,
-        "transaction": transaction,
-        "subtotal": subtotal.quantize(Decimal('0.01')),
-        "discount": discount.quantize(Decimal('0.01')),
-        "tax": tax.quantize(Decimal('0.01')),
-        "total": total.quantize(Decimal('0.01')),
-        "payment_method_display": payment_method_display,
-        "qr_code_base64": qr_base64  # Add Base64 QR Code to template
+        'customer_invoice': customer_invoice,
+        'cart_items': cart_items,
+        'payment_method_display': payment_method_display,
+        'subtotal': subtotal.quantize(Decimal('0.01')),
+        'total_discount': total_discount.quantize(Decimal('0.01')),
+        'total_tax': total_tax.quantize(Decimal('0.01')),
+        'total': Decimal(final_total).quantize(Decimal('0.01')),
+        'amount_paid': amount_paid.quantize(Decimal('0.01')),
+        'change': change.quantize(Decimal('0.01')),
+        'store_info': store_info,
+        'user': request.user,
+        'qr_code_base64': qr_code_base64,
+        'next_url': next_url,  # ✅ Pass to template
     }
 
     return render(request, 'billing/invoice_receipt.html', context)
 
 
 
-from django.http import JsonResponse
-from .models import Invoice, InvoiceItem
+from django.shortcuts import render, redirect
+from django.contrib.auth.decorators import login_required
+from django.contrib import messages
 from store.models import Product
-import json
+from billing.models import CustomerInvoice, Cart, TransactionInvoice
+from accounts.models import UserProfile
 import random
 import string
+import json
 
 # Utility function to generate unique invoice number
 def generate_invoice_number():
     return "INV" + ''.join(random.choices(string.digits, k=6))
 
-from django.shortcuts import render, redirect
-from django.http import JsonResponse
-from django.contrib.auth.decorators import login_required
-from store.models import Product
-from billing.models import Invoice, InvoiceItem
-from accounts.models import UserProfile
-import json
-
-
 @login_required
 def sales_view(request):
-    # Fetch the most recent customer invoice or create one if no invoices exist
-    customer_invoice = CustomerInvoice.objects.last()  # Fetch the latest invoice
+    if not request.user.is_authenticated:
+        return redirect('login')
 
-    # If no invoice exists, create a new one
-    if not customer_invoice:
+    # Get user role and store
+    try:
+        user_profile = request.user.userprofile
+        role = user_profile.role
+        user_store = user_profile.store
+    except UserProfile.DoesNotExist:
+        messages.error(request, "User profile does not exist.")
+        return redirect('dashboard:index')
+
+    if not user_store:
+        messages.error(request, "You are not assigned to any store.")
+        return redirect('dashboard:index')
+
+    if not role:
+        messages.error(request, "User role is not assigned. Please contact admin.")
+        return redirect('dashboard:index')
+
+    # Get or create the last customer invoice for this user & store or create a new one if none
+    customer_invoice = CustomerInvoice.objects.filter(user=request.user, store=user_store).last()
+    if customer_invoice is None:
         customer_invoice = CustomerInvoice.objects.create(
-            invoice_number=generate_invoice_number(),  # Use your custom function for generating invoice number
-            customer_name="Default Customer",  # You can dynamically set this later
-            total_amount=0.0,  # Initialize with default values
-            discount=0.0,
-            tax=0.0,
-            final_total=0.0,
-            user=request.user  # Make sure to link the invoice to the current logged-in user
+            invoice_number=generate_invoice_number(),
+            total_amount=0,
+            discount=0,
+            tax=0,
+            final_total=0,
+            user=request.user,
+            store=user_store
         )
 
-    invoice_id = customer_invoice.id  # Get the invoice_id from the most recent or newly created invoice
+    invoice_id = customer_invoice.id
 
-    # Access the role via UserProfile
-    try:
-        user_profile = request.user.userprofile  # Fetch the UserProfile related to the user
-        role = user_profile.role  # Get the role
-    except UserProfile.DoesNotExist:
-        role = None  # Handle the case where UserProfile is not set up
-
-    # Fetch products based on user's store (cashiers will only see their store's products)
+    # Filter products based on user role
     if role == 'cashier':
-        cashier_store = user_profile.store  # Assuming UserProfile has a 'store' field
-        print(f"Cashier's Store: {cashier_store}")  # Check the store for this cashier
-        
-        # Filter products by the cashier's store and status
-        products = Product.objects.filter(store=cashier_store, status=1)  
-        
-    else:
-        # If not a cashier, show all products or based on other conditions
-        products = Product.objects.all()
+        products = Product.objects.filter(store=user_store, status=True)
+    elif role == 'admin':
+        products = Product.objects.filter(store=user_store, status=True)
 
-    # Check for low stock in the products
+
+    # Identify low stock products
     low_stock_products = [product for product in products if product.is_stock_low]
 
-    # Handle POST request to process sales and generate invoice
-    if request.method == 'POST':
-        # Handle the logic when the form is submitted
-        customer_name = request.POST.get('customer_name')
-        cart_data = request.POST.get('cart_data')
-        amount_paid = request.POST.get('amount_paid')
-        discount = float(request.POST.get('discount', 0))
-        tax = float(request.POST.get('tax', 0))
-        payment_method = request.POST.get('payment_method')  # Get the payment method from the form
-
-        # Parse cart data from the hidden input using JSON
+    # Get or create cart
+    cart_id = request.session.get('cart_id', None)
+    if cart_id is None:
+        cart = Cart.objects.create(user=request.user, store=user_store)
+        request.session['cart_id'] = cart.id
+        cart_id = cart.id
+    else:
         try:
-            cart = json.loads(cart_data)
-        except json.JSONDecodeError:
-            return JsonResponse({'error': 'Invalid cart data format.'}, status=400)
+            cart = Cart.objects.get(id=cart_id)
+        except Cart.DoesNotExist:
+            cart = Cart.objects.create(user=request.user, store=user_store)
+            request.session['cart_id'] = cart.id
+            cart_id = cart.id
 
-        # Calculate total amount and final total after discount and tax
-        total_amount = sum(item['price'] * item['quantity'] * (1 - item['discount'] / 100) for item in cart)
-        final_total = total_amount + (total_amount * tax / 100) - discount
+    # Clear cart items if requested
+    if 'reset_cart' in request.GET:
+        cart.cart_items.all().delete()
 
-        # Generate unique invoice number (you can implement a custom logic for this)
-        invoice_number = generate_invoice_number()
+    cart_items_qs = cart.cart_items.all()
 
-        # Create CustomerInvoice (use CustomerInvoice model)
-        invoice = CustomerInvoice.objects.create(
-            invoice_number=invoice_number,
-            customer_name=customer_name,
-            total_amount=total_amount,
-            discount=discount,
-            tax=tax,
-            final_total=final_total,
-            user=request.user  # Link the invoice to the current user (this should resolve the NULL user issue)
-        )
+    # Calculate total amount for cart items
+    total_amount = sum(item.quantity * item.product.selling_price for item in cart_items_qs)
 
-        # Create Invoice Items (products in the cart)
-        for item in cart:
-            product = Product.objects.get(id=item['id'])
-            InvoiceItem.objects.create(
-                invoice=invoice,
-                product=product,
-                quantity=item['quantity'],
-                price=item['price'],
-                total_price=item['price'] * item['quantity'] * (1 - item['discount'] / 100)
-            )
+    # Sync cart contents into session as JSON
+    cart_items = [{'id': item.product.id, 'quantity': item.quantity} for item in cart_items_qs]
+    request.session['cart_data'] = json.dumps(cart_items)
+    request.session.modified = True
 
-        # After creating the invoice, redirect to the invoice detail page
-        return redirect('billing:generate_invoice', invoice_id=invoice.id)
-
-    # Render the sales page with the dynamic invoice_id, filtered products, and low_stock_products
     return render(request, 'billing/sales.html', {
         'invoice_id': invoice_id,
         'products': products,
-        'low_stock_products': low_stock_products  # Pass low stock products to the template
+        'low_stock_products': low_stock_products,
+        'cart': cart,
+        'cart_items': cart_items_qs,
+        'total_amount': total_amount,
     })
+
+
+
+
+def serialize_low_stock(products):
+    # Customize the fields you want to send
+    return [
+        {
+            'id': p.id,
+            'name': p.name,
+            'quantity': p.quantity,
+        } for p in products
+    ]
+
+
 
 
 
@@ -389,219 +386,192 @@ def process_sale(request):
         return render(request, 'billing/sales.html', {'products': products})
 
 
-
-
-
-
-
-from decimal import Decimal
+# import json
 import json
-from django.shortcuts import get_object_or_404, redirect
+from decimal import Decimal
 from django.http import JsonResponse
-from django.contrib import messages
-from django.utils import timezone
-from billing.models import CustomerInvoice, TransactionInvoice
-from store.models import Product
-#from account.models import UserProfile
+from django.views.decorators.csrf import csrf_protect
+from django.contrib.auth.decorators import login_required
+from django.shortcuts import get_object_or_404
+from .models import CustomerInvoice, TransactionInvoice, Customer
+from store.models import Product, TaxAndDiscount
 
-def generate_invoice(request, invoice_id=None):
-    cart_id = request.session.get('cart_id')
-    print(f"Cart ID from session: {cart_id}")
-
-    if not cart_id:
-        messages.error(request, "No cart found for this session.")
-        return redirect('billing:sales_view')
-
-    
-    customer_invoice = None
-    if invoice_id:
-        customer_invoice = get_object_or_404(CustomerInvoice, id=invoice_id)
-
-    if request.method == 'POST':
-        cart_data = request.POST.get('cart_data')
-        customer_name = request.POST.get('customer_name', '') or "Customer"
-        payment_method = request.POST.get('payment_method', 'Cash')
-
-        if not cart_data:
-            messages.error(request, "Cart is empty!")
-            return redirect('billing:sales_view')
-
-        try:
-            cart = json.loads(cart_data)
-        except json.JSONDecodeError as e:
-            messages.error(request, f"Invalid cart data: {e}")
-            return redirect('billing:sales_view')
-
-        try:
-            user_profile = UserProfile.objects.get(user=request.user)
-            cashier_name = request.user.username
-        except UserProfile.DoesNotExist:
-            cashier_name = request.user.username
-
-        if not customer_invoice:
-            customer_invoice = CustomerInvoice.objects.create(
-                invoice_number=cart_id,
-                customer_name=customer_name,
-                total_amount=0,
-                created_at=timezone.now(),
-                user=request.user,
-                payment_method=payment_method,
-            )
-
-        total_amount = 0
-
-        for item in cart:
-            try:
-                product = Product.objects.get(id=item['id'])
-            except Product.DoesNotExist:
-                messages.error(request, f"Product with ID {item['id']} not found!")
-                return redirect('billing:sales_view')
-
-            discounted_price = product.discounted_price
-            quantity = item['quantity']
-            subtotal = discounted_price * quantity
-
-            # Calculate tax
-            product_tax = product.product_tax or 0
-            tax_amount = subtotal * (Decimal(product_tax) / Decimal('100'))
-
-            # Calculate prorated discount (based on discount %)
-            prorated_discount = (product.discount / 100) * (product.discounted_price * quantity)
-
-            # Prorated tax after discount
-            prorated_tax = (Decimal(product_tax) / Decimal(100)) * (subtotal - prorated_discount)
-
-            # Adjusted final price
-            adjusted_final_price = (subtotal - prorated_discount) + prorated_tax
-
-            total_amount += adjusted_final_price
-
-            # Save the TransactionInvoice with new fields
-            TransactionInvoice.objects.create(
-                customer_invoice=customer_invoice,
-                product=product,
-                quantity=quantity,
-                price=discounted_price,
-                discount=product.discount,
-                subtotal=subtotal,
-                tax=tax_amount,
-                prorated_discount=prorated_discount,
-                prorated_tax=prorated_tax,
-                adjusted_final_price=adjusted_final_price,
-                store=product.store,
-                cart_id=cart_id,
-                user=request.user,
-                payment_method=payment_method,
-                customer_name=customer_name
-            )
-
-        customer_invoice.total_amount = total_amount
-        customer_invoice.save()
-        qr_code_path = generate_qr_code(cart_id)
-
-        # 
-        return JsonResponse({
-            'invoice_id': customer_invoice.id,
-             'qr_code_path': qr_code_path  # ✅ Include QR code in response
-          
-        })
-
-    return redirect('billing:sales_view')
-
-
-
-
-
-
-
-
-
-
-from store.models import TaxAndDiscount
-
-def calculate_total(cart):
-    settings = TaxAndDiscount.objects.first()  # Fetch the global settings
-    print(f"Tax: {settings.tax}, Discount: {settings.discount}")  # Debugging line
-    subtotal = sum(item['price'] * item['quantity'] for item in cart)
-    tax = subtotal * (settings.tax / 100) if settings else 0
-    discount = subtotal * (settings.discount / 100) if settings else 0
-    total = subtotal - discount + tax
-    print(f"Subtotal: {subtotal}, Discount: {discount}, Tax: {tax}, Total: {total}")  # Debugging line
-    return total
-
-
-
-
-
-from django.shortcuts import render, redirect
-from .models import CustomerInvoice
-
-def create_invoice(request):
-    if request.method == "POST":
-        customer_name = request.POST.get("customer_name")
-        total_amount = request.POST.get("total_amount")
-        payment_method = request.POST.get("payment_method")
-        tax = request.POST.get("tax")
-        discount = request.POST.get("discount")
-
-        invoice = CustomerInvoice.objects.create(
-            customer_name=customer_name,
-            total_amount=total_amount,
-            user=request.user,
-            payment_method=payment_method,
-            tax=tax,
-            discount=discount,
-        )
-
-        # Redirect to Invoice Receipt
-        return redirect("billing:invoice_receipt", invoice_id=invoice.id)
-
-    return render(request, "billing/create_invoice.html")
-
-
-# Example view to add to cart and set cart_id
-from django.shortcuts import render, redirect
-from django.contrib.sessions.models import Session
-
-def add_to_cart(request):
-    # Retrieve the cart_id from the session or create a new cart if none exists
-    cart_id = request.session.get('cart_id')
-    if not cart_id:
-        # Create a new cart for the current session and store the cart_id in the session
-        cart = create_cart(request, store_id=request.user.store.id)  # Assuming create_cart() returns a Cart object
-        request.session['cart_id'] = cart.id  # Store the cart's id in session
-        request.session.modified = True  # Mark the session as modified
-    
-    else:
-        # If cart_id already exists, retrieve the Cart object
-        cart = Cart.objects.get(id=cart_id)
-    
-    # Get the product details from the request
-    product_id = request.POST.get('product_id')
-    quantity = int(request.POST.get('quantity', 1))
+@login_required
+@csrf_protect
+def generate_invoice(request):
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Invalid request method'}, status=405)
 
     try:
-        product = Product.objects.get(id=product_id)
-    except Product.DoesNotExist:
-        messages.error(request, f"Product with ID {product_id} not found!")
-        return redirect('billing:sales_view')
+        payload = json.loads(request.body)
+        print("Payload received:", payload)  # Debug log
 
-    # Calculate the subtotal for the product
-    subtotal = product.price * quantity
+        raw_name = payload.get('customer_name', '').strip()
+        raw_phone = payload.get('phone_number', '').strip()
 
-    # Create a new transaction for the cart
-    transaction = TransactionInvoice.objects.create(
-        product=product,
-        quantity=quantity,
-        price=product.price,
-        subtotal=subtotal,
-        cart=cart,  # Link to the Cart instance
-        customer_invoice_id=request.POST.get('customer_invoice_id'),
-        store=request.user.store  # Directly link to the store object (not store_id)
-    )
+        customer_name = raw_name or 'Customer'
+        phone_number = raw_phone if raw_phone else None
 
-    messages.success(request, f"{product.name} added to cart successfully!")
-    return redirect('billing:sales_view')
+        print(f"Customer name: '{customer_name}', Phone number: '{phone_number}'")  # Debug log
+
+        cart_items = payload.get('cart', [])
+        if not cart_items:
+            return JsonResponse({'error': 'Missing cart data'}, status=400)
+
+        # --- STOCK QUANTITY VALIDATION BEFORE CREATING INVOICE ---
+        for item in cart_items:
+            pid = item.get('product_id') or item.get('id')
+            quantity = int(item.get('quantity', 0))
+            product = get_object_or_404(Product, id=pid)
+            if quantity > product.quantity:
+                return JsonResponse({
+                    'error': f"Insufficient stock for '{product.name}'. Available: {product.quantity}, requested: {quantity}."
+                }, status=400)
+
+        # Proceed with customer get-or-create logic
+        if phone_number:
+            customer = Customer.objects.filter(name=customer_name, phone_number__isnull=True).first()
+            if customer:
+                customer.phone_number = phone_number
+                customer.save()
+            else:
+                customer, created = Customer.objects.get_or_create(
+                    phone_number=phone_number,
+                    defaults={'name': customer_name}
+                )
+                if not created and customer.name != customer_name:
+                    customer.name = customer_name
+                    customer.save()
+        else:
+            customer = Customer.objects.filter(name=customer_name).first()
+            if not customer:
+                customer = Customer.objects.create(name=customer_name, phone_number=None)
+
+        amount_paid = Decimal(payload.get('amount_paid') or '0')
+        payment_method = payload.get('payment_method', 'Unknown')
+
+        td = TaxAndDiscount.objects.first()
+        discount_rate = td.discount if td else Decimal('0')
+        tax_rate = td.tax if td else Decimal('0')
+
+        store = request.user.store
+
+        invoice = CustomerInvoice.objects.create(
+            customer=customer,
+            customer_name=customer_name,
+            total_amount=Decimal('0.00'),
+            tax=Decimal('0.00'),
+            discount=Decimal('0.00'),
+            final_total=Decimal('0.00'),
+            amount_paid=amount_paid,
+            change=Decimal('0.00'),
+            payment_method=payment_method,
+            user=request.user,
+            store=store
+        )
+
+        total_amount = Decimal('0.00')
+        total_discount = Decimal('0.00')
+        total_tax = Decimal('0.00')
+
+        for item in cart_items:
+            pid = item.get('product_id') or item.get('id')
+            quantity = int(item.get('quantity', 0))
+            price = Decimal(str(item.get('price', '0')))
+            product = get_object_or_404(Product, id=pid)
+            discounted_price = price * (Decimal('1') - discount_rate / Decimal('100'))
+            line_subtotal = (discounted_price * quantity).quantize(Decimal('0.01'))
+            total_amount += line_subtotal
+
+            tx = TransactionInvoice.objects.create(
+                customer_invoice=invoice,
+                product=product,
+                quantity=quantity,
+                price=price,
+                subtotal=line_subtotal,
+                discount=Decimal('0.00'),
+                tax=Decimal('0.00'),
+                prorated_discount=Decimal('0.00'),
+                prorated_tax=Decimal('0.00'),
+                adjusted_final_price=line_subtotal,
+                store=store,
+                cart_id=str(invoice.id),
+                user=request.user
+            )
+            total_discount += tx.discount
+            total_tax += tx.tax
+
+        invoice.total_amount = total_amount
+        invoice.discount = total_discount
+        invoice.tax = total_tax
+        invoice.final_total = (total_amount + total_tax - total_discount).quantize(Decimal('0.01'))
+
+        change = (amount_paid - invoice.final_total).quantize(Decimal('0.01'))
+        invoice.change = change
+
+        invoice.save()
+
+        return JsonResponse({'invoice_id': invoice.id})
+
+    except Exception as e:
+        print(f"Error in generate_invoice: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
+
+
+
+
+from django.shortcuts import redirect
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt  # Optional, only if you want to disable CSRF temporarily
+from django.contrib import messages
+from store.models import Product
+from billing.models import Cart, TransactionInvoice
+
+from django.core.exceptions import ValidationError
+
+from billing.models import Cart, CartItem  # Make sure to import CartItem
+
+def add_to_cart(request):
+    if request.method == 'POST':
+        cart_id = request.session.get('cart_id')
+
+        if not cart_id:
+            cart = Cart.objects.create(user=request.user, store=request.user.userprofile.store)
+            request.session['cart_id'] = cart.id
+            request.session.modified = True
+        else:
+            try:
+                cart = Cart.objects.get(id=cart_id)
+            except Cart.DoesNotExist:
+                cart = Cart.objects.create(user=request.user, store=request.user.userprofile.store)
+                request.session['cart_id'] = cart.id
+                request.session.modified = True
+
+        product_id = request.POST.get('product_id')
+        quantity = int(request.POST.get('quantity', 1))
+
+        try:
+            product = Product.objects.get(id=product_id)
+        except Product.DoesNotExist:
+            return JsonResponse({'status': 'error', 'message': f"Product with ID {product_id} not found!"}, status=404)
+
+        # Check if CartItem exists for product in this cart
+        cart_item, created = CartItem.objects.get_or_create(cart=cart, product=product)
+
+        if not created:
+            cart_item.quantity += quantity  # Increase quantity if already exists
+        else:
+            cart_item.quantity = quantity
+
+        cart_item.save()
+
+        return JsonResponse({'status': 'success', 'message': f"{product.name} added to cart successfully!"})
+
+    return JsonResponse({'status': 'error', 'message': 'Invalid request method'}, status=400)
+
+
+
+
 
 
 def generate_new_cart_id():
@@ -739,105 +709,93 @@ def clear_cart(request):
     return JsonResponse({'status': 'success', 'message': 'Cart cleared and new cart ID generated.', 'cart_id': cart_id})
 
 
-from django.shortcuts import render
-from django.utils.timezone import now, timedelta
-from django.db.models import Q, Sum
-from django.core.paginator import Paginator
-from .models import TransactionInvoice
-from datetime import datetime
-
-from django.db.models import Sum
-
-
-from django.http import JsonResponse
-from django.template.loader import render_to_string
-
 
 def all_transactions(request):
-    # Get filter parameters from the GET request
-    filter_field = request.GET.get('filter', None)
-    filter_value = request.GET.get('filter_value', None)
-    start_date = request.GET.get('start_date', None)
-    end_date = request.GET.get('end_date', None)
+    filter_field = request.GET.get('filter_field')
+    filter_value = request.GET.get('filter_value')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
 
-    # Start with the base queryset
-    transactions = TransactionInvoice.objects.all()
+    transactions = TransactionInvoice.objects.all().order_by('-created_at')
 
-    # Apply filters based on the GET parameters
+    # Apply filter_field and filter_value
     if filter_field and filter_value:
-        if filter_field == 'payment_method':
-            transactions = transactions.filter(payment_method=filter_value)
-        elif filter_field == 'store':
-            transactions = transactions.filter(store__name=filter_value)
-        elif filter_field == 'invoice_number':
-            transactions = transactions.filter(invoice_number=filter_value)
-        elif filter_field == 'customer_name':
-            transactions = transactions.filter(customer_name__icontains=filter_value)
-        elif filter_field == 'cashier_name':  # ✅ Add this condition
-            transactions = transactions.filter(user__username=filter_value)  
+        if filter_field == 'product':
+            transactions = transactions.filter(product__name__icontains=filter_value)
+        elif filter_field == 'store_name':
+            transactions = transactions.filter(store__name__icontains=filter_value)
 
-    # Apply date filters if provided
+    # Apply date filters
     if start_date:
         transactions = transactions.filter(created_at__gte=start_date)
     if end_date:
-        transactions = transactions.filter(created_at__lte=end_date)
+        end_date_obj = datetime.strptime(end_date, '%Y-%m-%d')
+        end_date_obj = end_date_obj + timedelta(days=1) - timedelta(seconds=1)
+        transactions = transactions.filter(created_at__lte=end_date_obj)
 
-    # Calculate the total sales (sum of the subtotal field)
-    total_sales = transactions.aggregate(Sum('subtotal'))['subtotal__sum'] or 0
+    totals = transactions.aggregate(
+        total_sales=Sum('subtotal'),
+        total_quantity=Sum('quantity')
+    )
+    total_sales = totals['total_sales'] or 0
+    total_quantity = totals['total_quantity'] or 0
 
-    # Pagination: Show 10 transactions per page
     paginator = Paginator(transactions, 10)
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
 
-    # Return the filtered and paginated data to the template
     return render(request, 'billing/transactions.html', {
         'transactions': page_obj,
         'total_sales': total_sales,
+        'total_quantity': total_quantity,
     })
 
 
 
 
 from django.shortcuts import render
-from django.db.models import Sum, Q
+from django.db.models import Q
 from datetime import datetime, timedelta
 from django.core.paginator import Paginator
 from billing.models import TransactionInvoice
 from store.models import TaxAndDiscount
+from django.db.models import Sum
 
 
 def transactions_list(request):
+    # Fetch transactions with necessary related data
     transactions = TransactionInvoice.objects.select_related('customer_invoice', 'product', 'store')
 
-    # Calculate total sales
-    total_sales = transactions.aggregate(Sum('subtotal'))['subtotal__sum'] or 0
-
-    # Debugging: Print to console
-    print(f"Total Sales Value: {total_sales}")
-
-    # Fetch global tax and discount
-    global_tax_discount = TaxAndDiscount.objects.first()  # Assuming only one global setting
+    # Fetch global tax and discount settings (assumes only one global config)
+    global_tax_discount = TaxAndDiscount.objects.first()  # Get the first global tax and discount config
     global_discount = global_tax_discount.discount if global_tax_discount else 0
     global_tax = global_tax_discount.tax if global_tax_discount else 0
 
-    # Apply calculated values
+    # Calculate adjusted total sales after discount and tax
+    total_sales = 0
     for transaction in transactions:
+        # Get product-specific discount and tax values
         product_discount = transaction.discount or 0
         product_tax = transaction.tax or 0
 
-        # Total discount and tax (both global + product-specific)
+        # Combine global and product-level discount/tax
         total_discount = product_discount + global_discount
         total_tax = product_tax + global_tax
 
-        # Prorated values
+        # Compute prorated discount and tax based on the subtotal
         transaction.prorated_discount = (transaction.subtotal * total_discount) / 100
         transaction.prorated_tax = (transaction.subtotal * total_tax) / 100
 
-        # Adjusted final price
+        # Final adjusted price for this transaction (after discount and tax)
         transaction.adjusted_final_price = transaction.subtotal - transaction.prorated_discount + transaction.prorated_tax
 
-    # Filters and other query handling
+        # Add to cumulative total sales
+        total_sales = transactions.aggregate(total=Sum('adjusted_final_price'))['total'] or 0
+
+    # Round total sales to 2 decimal places
+    total_sales = round(total_sales, 2)
+
+    # Handle search and filter queries from request
     search_query = request.GET.get('search', '')
     filter_period = request.GET.get('filter', '')
     start_date = request.GET.get('start_date', '')
@@ -845,6 +803,7 @@ def transactions_list(request):
     filter_field = request.GET.get('filter_field', '')
     filter_value = request.GET.get('filter_value', '')
 
+    # Apply search query filter
     if search_query:
         transactions = transactions.filter(
             Q(store__name__icontains=search_query) |
@@ -852,6 +811,7 @@ def transactions_list(request):
             Q(product__name__icontains=search_query)
         )
 
+    # Apply specific field filters (store, invoice number, etc.)
     if filter_field and filter_value:
         if filter_field == 'store':
             transactions = transactions.filter(store__name__icontains=filter_value)
@@ -862,6 +822,7 @@ def transactions_list(request):
         elif filter_field == 'payment_method':
             transactions = transactions.filter(customer_invoice__payment_method__icontains=filter_value)
 
+    # Apply period filters (day, week, month, year)
     if filter_period:
         today = datetime.today()
         if filter_period == 'day':
@@ -874,25 +835,27 @@ def transactions_list(request):
         elif filter_period == 'year':
             transactions = transactions.filter(created_at__year=today.year)
 
+    # Apply date range filter (start_date to end_date)
     try:
         if start_date and end_date:
             start_date_parsed = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_date_parsed = datetime.strptime(end_date, '%Y-%m-%d').date()
             transactions = transactions.filter(created_at__date__range=[start_date_parsed, end_date_parsed])
     except ValueError:
-        pass  # Ignore invalid date filters
+        pass  # Ignore invalid date ranges
 
-    # **Fix pagination issue by ordering the queryset**
+    # Order transactions by most recent
     transactions = transactions.order_by('-created_at')
 
-    # Pagination
+    # Paginate transactions
     paginator = Paginator(transactions, 10)
     page_number = request.GET.get('page')
     transactions_page = paginator.get_page(page_number)
 
-    return render(request, 'billing:transactions_list.html', {
+    # Return context to the template
+    return render(request, 'billing/transactions_list.html', {
         'transactions': transactions_page,
-        'total_value': total_sales,
+        'total_sales': total_sales,  # The total sales after applying tax and discount
     })
 
 
@@ -955,8 +918,8 @@ def filter_transactions(request):
                 'store_name': transaction.store.name,
                 'quantity': transaction.quantity,
                 'price': transaction.price,
-                'discount': transaction.discount,
-                'tax': transaction.tax if transaction.tax is not None else 0.00,
+                'discount': transaction.product.discount,
+                'tax': transaction.product.product_tax if transaction.product.product_tax is not None else 0.00,
                 'subtotal': transaction.subtotal,
                 'prorated_discount': transaction.prorated_discount if hasattr(transaction, 'prorated_discount') else 0.00,
                 'prorated_tax': transaction.prorated_tax if hasattr(transaction, 'prorated_tax') else 0.00,
@@ -1020,7 +983,176 @@ def transaction_search(request):
 
 
 
+from django.http import HttpResponse
+import openpyxl
+from openpyxl.chart import PieChart, Reference
+from collections import defaultdict
+from .models import TransactionInvoice
+from datetime import datetime, time
+from django.db.models import Sum, Count
 
+def set_column_widths(worksheet):
+    for col in worksheet.columns:
+        max_length = 0
+        column_letter = col[0].column_letter
+        for cell in col:
+            try:
+                if cell.value:
+                    cell_length = len(str(cell.value))
+                    if cell_length > max_length:
+                        max_length = cell_length
+            except:
+                pass
+        worksheet.column_dimensions[column_letter].width = max_length + 2
+
+def export_transactions_to_excel(request):
+    # Retrieve parameters
+    start_date = request.GET.get('start_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
+    filter_field = request.GET.get('filter_field', '').strip()
+    filter_value = request.GET.get('filter_value', '').strip()
+
+    # Map frontend filter keys to model fields
+    field_map = {
+        'store_name': 'store__name',
+        'product': 'product__name',
+    }
+
+    transactions = TransactionInvoice.objects.all()
+    print(f"Initial transactions count: {transactions.count()}")
+
+    # Apply date filtering safely with full datetime boundaries
+    if start_date:
+        try:
+            start = datetime.strptime(start_date, '%Y-%m-%d')
+            transactions = transactions.filter(created_at__gte=start)
+            print(f"After start_date filter ({start_date}): {transactions.count()}")
+        except Exception as e:
+            print(f"Invalid start_date format: {start_date} | Error: {e}")
+
+    if end_date:
+        try:
+            end = datetime.strptime(end_date, '%Y-%m-%d')
+            # Set end time to end of the day for inclusive filter
+            end = end.replace(hour=23, minute=59, second=59)
+            transactions = transactions.filter(created_at__lte=end)
+            print(f"After end_date filter ({end_date}): {transactions.count()}")
+        except Exception as e:
+            print(f"Invalid end_date format: {end_date} | Error: {e}")
+
+    # Apply field filter if valid
+    if filter_field and filter_value:
+        actual_field = field_map.get(filter_field)
+        if actual_field:
+            filter_value = filter_value.strip()
+            transactions = transactions.filter(**{f"{actual_field}__icontains": filter_value})
+            print(f"After field filter '{actual_field}' contains '{filter_value}': {transactions.count()}")
+        else:
+            print(f"Filter field '{filter_field}' not recognized; skipping filter.")
+
+    count = transactions.count()
+    print(f"Final transactions count after filtering: {count}")
+
+    if count == 0:
+        # Return Excel with headers and a message row
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Transactions"
+        headers = ["Product", "Store", "Quantity", "Price", "Discount", "Tax",
+                   "Subtotal", "Adjusted Final Price", "Date"]
+        ws.append(headers)
+        ws.append(["No data found for the applied filters."])
+        set_column_widths(ws)
+        response = HttpResponse(
+            content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+        )
+        response['Content-Disposition'] = 'attachment; filename=transactions.xlsx'
+        wb.save(response)
+        return response
+
+    # Proceed to create workbook as usual
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Transactions"
+
+    headers = [
+        "Product", "Store", "Quantity", "Price", "Discount", "Tax",
+        "Subtotal", "Adjusted Final Price", "Date"
+    ]
+    ws.append(headers)
+
+    product_summary = defaultdict(lambda: {'quantity': 0, 'total_price': 0.0, 'total_unit_price': 0.0, 'count': 0})
+
+    for idx, transaction in enumerate(transactions, start=2):
+        ws[f'A{idx}'] = transaction.product.name
+        ws[f'B{idx}'] = transaction.store.name
+        ws[f'C{idx}'] = transaction.quantity
+        ws[f'D{idx}'] = transaction.price
+        ws[f'E{idx}'] = transaction.product.discount
+        ws[f'F{idx}'] = transaction.product.product_tax
+        ws[f'G{idx}'] = transaction.subtotal
+        ws[f'H{idx}'] = transaction.adjusted_final_price
+        ws[f'I{idx}'] = transaction.created_at.strftime('%d-%m-%Y') if transaction.created_at else "N/A"
+
+        pname = transaction.product.name
+        product_summary[pname]['quantity'] += transaction.quantity
+        product_summary[pname]['total_price'] += transaction.quantity * float(transaction.price)
+        product_summary[pname]['total_unit_price'] += float(transaction.price)
+        product_summary[pname]['count'] += 1
+
+    summary = transactions.aggregate(
+        total_quantity=Sum('quantity'),
+        total_subtotal=Sum('subtotal'),
+        total_sales=Sum('adjusted_final_price'),
+        total_invoices=Count('cart_id', distinct=True)
+    )
+
+    total_tax = sum((t.product.product_tax or 0) for t in transactions)
+    total_discount = sum((t.product.discount or 0) for t in transactions)
+
+    ws.append([])
+    ws.append([
+        "", "", "TOTALS", "",
+        total_discount,
+        total_tax,
+        summary['total_subtotal'] or 0,
+        summary['total_sales'] or 0,
+        "",
+    ])
+    ws.append(["", "", "Total Quantity", summary['total_quantity'] or 0])
+    ws.append(["", "", "Total Invoices", summary['total_invoices'] or 0])
+
+    set_column_widths(ws)
+
+    summary_ws = wb.create_sheet(title="Product Quantity Summary")
+    summary_ws.append(["Product", "Total Quantity", "Avg Price", "Total Price (₦)"])
+
+    row_idx = 1
+    for row_idx, (product_name, data) in enumerate(product_summary.items(), start=2):
+        avg_price = data['total_unit_price'] / data['count'] if data['count'] else 0
+        summary_ws[f"A{row_idx}"] = product_name
+        summary_ws[f"B{row_idx}"] = data['quantity']
+        summary_ws[f"C{row_idx}"] = round(avg_price, 2)
+        summary_ws[f"D{row_idx}"] = round(data['total_price'], 2)
+
+    set_column_widths(summary_ws)
+
+    pie = PieChart()
+    pie.title = "Quantity Sold per Product"
+    labels = Reference(summary_ws, min_col=1, min_row=2, max_row=row_idx)
+    data = Reference(summary_ws, min_col=2, min_row=1, max_row=row_idx)
+    pie.add_data(data, titles_from_data=True)
+    pie.set_categories(labels)
+    pie.height = 10
+    pie.width = 10
+    summary_ws.add_chart(pie, "F2")
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=transactions.xlsx'
+    wb.save(response)
+    return response
 
 # views.py
 
@@ -1042,10 +1174,17 @@ def re_print_invoice(request):
             print(f"Transactions found: {transactions.count()}")  # Debug
 
             if transactions.exists():
+                # Calculate subtotal, discount, tax, and total
                 subtotal = sum(item.subtotal for item in transactions)
                 discount = sum(item.discount for item in transactions)
-                tax = sum(item.tax for item in transactions) 
+                tax = sum(item.tax for item in transactions)
                 total = subtotal - discount + tax
+
+                # Retrieve amount_paid and change from the first transaction
+                # Assuming the `amount_paid` and `change` values are the same for all items in the cart
+                first_transaction = transactions.first()
+                amount_paid = first_transaction.amount_paid if first_transaction else 0
+                change = first_transaction.change if first_transaction else 0
 
                 # Generate QR code as done in the invoice_receipt view
                 invoice_url = request.build_absolute_uri(reverse('billing:re_print_invoice'))
@@ -1056,16 +1195,20 @@ def re_print_invoice(request):
                 qr.save(buffer, format="PNG")
                 qr_base64 = base64.b64encode(buffer.getvalue()).decode()
 
+                # Render the template with all the required context
                 return render(request, 'billing/re_print_invoice.html', {
                     'cart_items': transactions,
                     'subtotal': subtotal,
                     'discount': discount,
                     'tax': tax,
                     'total': total,
+                    'amount_paid': amount_paid,
+                    'change': change,
                     'qr_code_base64': qr_base64,  # Pass the QR code to the template
                 })
             else:
                 return render(request, 'billing/re_print_invoice.html', {'error': 'No transactions found.'})
+
     return render(request, 'billing/re_print_invoice.html', {'error': 'No cart ID provided.'})
 
 
@@ -1082,30 +1225,61 @@ def reset_sales_page(request):
     return redirect('billing:sales_view')  # Ensure 'sales' is the name of your URL pattern for sales.html
 
 
-import qrcode
-from django.conf import settings
-from django.shortcuts import render, get_object_or_404
-from .models import TransactionInvoice
 import os
+import qrcode
+import threading
+from io import BytesIO
+from tempfile import NamedTemporaryFile
+from google.cloud import storage
+from django.conf import settings
 
+def upload_qr_to_gcs(local_file_path, cloud_file_name):
+    """Upload QR code to Google Cloud Storage asynchronously."""
+    try:
+        storage_client = storage.Client()
+        bucket = storage_client.bucket(settings.GS_BUCKET_NAME)
+        blob = bucket.blob(cloud_file_name)
+        
+        # Upload file
+        blob.upload_from_filename(local_file_path, content_type='image/png')
 
-def generate_qr_code(cart_id):
-    os.makedirs(settings.MEDIA_ROOT, exist_ok=True)  # Ensure media folder exists
+        # Make publicly accessible (optional)
+        blob.make_public()
 
-    file_name = f"qr_code_{cart_id}.png"
-    file_path = os.path.join(settings.MEDIA_ROOT, file_name)
+        print(f"✅ QR Code uploaded to: {blob.public_url}")
+        return blob.public_url
+    except Exception as e:
+        print(f"❌ Error uploading QR Code: {e}")
+        return ""
+    
 
-    # Generate and save the QR code
-    qr = qrcode.make(cart_id)
-    qr.save(file_path)
+import os
+import qrcode
+from tempfile import NamedTemporaryFile
+from django.urls import reverse
 
-    # Debugging: Check if file exists
-    if os.path.exists(file_path):
-        print(f"✅ QR Code successfully created: {file_path}")
-        return file_name  # Return only file name, not full path
-    else:
-        print("❌ Failed to create QR Code!")
-        return ""  # Return empty string to avoid issues
+def generate_qr_code(invoice_id, request):
+    """Generate QR Code with Invoice URL and store it locally."""
+    
+    temp_dir = os.path.join(os.getcwd(), "tmp_dir")
+    os.makedirs(temp_dir, exist_ok=True)  # Create if it doesn't exist
+
+    # ✅ Step 1: Generate the correct invoice URL
+    ngrok_url = "https://3d13-102-176-65-243.ngrok-free.app"  # Replace this with your Ngrok URL
+    invoice_url = ngrok_url + reverse('billing:invoice_receipt', args=[invoice_id])
+
+    # ✅ Step 2: Generate QR Code from the invoice URL
+    qr = qrcode.make(invoice_url)
+    
+    # ✅ Step 3: Save QR Code in a temporary file
+    with NamedTemporaryFile(delete=False, suffix=".png", dir=temp_dir) as temp_file:
+        qr_path = temp_file.name  # Get temp file path
+        qr.save(qr_path)  # Save QR code to temp file
+
+    print(f"✅ QR Code cached locally: {qr_path}")
+
+    # Return the path of the locally saved QR code
+    return qr_path  # This is the local path of the QR code
 
 def transaction_receipt(request, transaction_id):
     from django.utils.safestring import mark_safe  # For safe URL handling
@@ -1132,3 +1306,398 @@ def transaction_receipt(request, transaction_id):
         'qr_code_url': mark_safe(qr_code_url),  # Prevent escaping of URL
         'media_url': settings.MEDIA_URL
     })
+
+
+
+from django.http import JsonResponse
+from store.models import Product
+
+def search_billing_product(request):
+    query = request.GET.get("q", "").strip()
+    products = Product.objects.filter(name__icontains=query)[:10]
+
+    response_data = []
+    for product in products:
+        discounted_price = product.discounted_price
+        final_price = product.taxed_price
+
+        response_data.append({
+            "id": product.id,
+            "name": product.name,
+            "selling_price": str(product.selling_price),
+            "discount": str(product.discount),
+            "product_tax": str(product.product_tax),
+            "discounted_price": f"{discounted_price:.2f}",
+            "final_price": f"{final_price:.2f}",  # <- ✅ Send final price for billing
+            "quantity": int(product.quantity),
+            "expiry_date": product.expiry_date.strftime("%Y-%m-%d") if product.expiry_date else "",
+        })
+
+    return JsonResponse(response_data, safe=False)
+
+
+
+from django.http import JsonResponse
+from store.models import Product
+
+def search_product(request):
+    barcode = request.GET.get('barcode', '').strip()
+    if barcode:
+        try:
+            product = Product.objects.get(barcode=barcode)
+            product_data = {
+                'name': product.name,
+                'price': product.selling_price,
+                'quantity': product.quantity,
+                'discounted_price': product.discounted_price,
+                'taxed_price': product.taxed_price,
+                'discount': product.discount,
+                'tax': product.tax,
+            }
+            return JsonResponse({'product': product_data})
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Product not found'}, status=404)
+    return JsonResponse({'error': 'Invalid barcode'}, status=400)
+
+
+from django.http import JsonResponse
+from django.db.models import Q
+from .models import Customer
+
+def customer_list(request):
+    query = request.GET.get('q', '')
+    customers = Customer.objects.filter(
+        Q(name__icontains=query) | Q(phone_number__icontains=query)
+    ).order_by('-id') if query else Customer.objects.all().order_by('-id')
+
+    if request.headers.get('x-requested-with') == 'XMLHttpRequest':
+        data = [
+            {
+                'id': c.id,
+                'name': c.name,
+                'phone_number': c.phone_number or '—'
+            } for c in customers
+        ]
+        return JsonResponse({'customers': data})
+
+    return render(request, 'billing/customer_list.html', {'customers': customers})
+
+
+#===================================================================
+from django.shortcuts import render
+from .models import CustomerInvoice
+from django.core.paginator import Paginator
+from datetime import datetime
+from django.db.models import Sum
+from django.utils import timezone
+
+def invoice_list(request):
+    invoices = CustomerInvoice.objects.select_related('store', 'user').all().order_by('-created_at')
+
+    # Get filters
+    query = request.GET.get('query')
+    field = request.GET.get('field')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    # Field-based search
+    if query and field:
+        if field == 'invoice_number':
+            invoices = invoices.filter(invoice_number__icontains=query)
+        elif field == 'user':
+            invoices = invoices.filter(user__username__icontains=query)
+        elif field == 'store':
+            invoices = invoices.filter(store__name__icontains=query)
+        elif field == 'customer_name':
+            invoices = invoices.filter(customer_name__icontains=query)
+        elif field == 'payment_method':
+            invoices = invoices.filter(payment_method__icontains=query)
+
+    # Date range filter
+    try:
+        if start_date:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            start = timezone.make_aware(start)
+            invoices = invoices.filter(created_at__gte=start)
+
+        if end_date:
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            end = end.replace(hour=23, minute=59, second=59)
+            end = timezone.make_aware(end)
+            invoices = invoices.filter(created_at__lte=end)
+    except ValueError:
+        pass
+
+    # Calculate total sum of total_amount from filtered invoices
+    total_sum = invoices.aggregate(total=Sum('total_amount'))['total'] or 0
+
+    # Pagination
+    paginator = Paginator(invoices, 15)
+    page_number = request.GET.get('page')
+    invoices_page = paginator.get_page(page_number)
+
+    return render(request, 'billing/invoice_list.html', {
+        'invoices': invoices_page,
+        'total_sum': total_sum,
+        'query': query,
+        'field': field,
+        'start_date': start_date,
+        'end_date': end_date,
+    })
+
+
+
+
+#===================================================================
+from django.shortcuts import render, get_object_or_404
+from django.urls import reverse
+import qrcode
+import base64
+from io import BytesIO
+
+from .models import CustomerInvoice, TransactionInvoice, Store
+
+def invoice_detail(request, invoice_number):
+    customer_invoice = get_object_or_404(CustomerInvoice, invoice_number=invoice_number)
+    
+    cart_items = TransactionInvoice.objects.filter(customer_invoice=customer_invoice)
+    store_info = Store.objects.get(id=customer_invoice.store_id)
+
+    payment_method_display = customer_invoice.payment_method.capitalize()
+    total = sum(item.subtotal for item in cart_items)
+    amount_paid = customer_invoice.amount_paid
+    change = customer_invoice.change
+    user = request.user
+
+    # Get 'next' URL from query parameters or fallback to invoice list page
+    next_url = request.GET.get('next', reverse('billing:invoice_list'))
+
+    # QR code generation
+    invoice_url = request.build_absolute_uri(
+        reverse('billing:invoice_detail', args=[invoice_number])
+    )
+    qr_img = qrcode.make(invoice_url)
+    buffer = BytesIO()
+    qr_img.save(buffer, format="PNG")
+    qr_code_base64 = base64.b64encode(buffer.getvalue()).decode()
+
+    context = {
+        'customer_invoice': customer_invoice,
+        'cart_items': cart_items,
+        'store_info': store_info,
+        'payment_method_display': payment_method_display,
+        'total': total,
+        'amount_paid': amount_paid,
+        'change': change,
+        'user': user,
+        'qr_code_base64': qr_code_base64,
+        'next_url': next_url,   # Pass next_url to template
+    }
+    return render(request, 'billing/invoice_receipt.html', context)
+
+
+
+
+#==================================================================
+from datetime import datetime
+import openpyxl
+from openpyxl.utils import get_column_letter
+from openpyxl.chart import BarChart, Reference
+from django.http import HttpResponse
+from .models import CustomerInvoice
+
+def export_invoices_excel(request):
+    invoices = CustomerInvoice.objects.select_related('store', 'user').all().order_by('-created_at')
+
+    # Filters from request GET params
+    query = request.GET.get('query')
+    field = request.GET.get('field')
+    start_date = request.GET.get('start_date')
+    end_date = request.GET.get('end_date')
+
+    if query and field:
+        if field == 'invoice_number':
+            invoices = invoices.filter(invoice_number__icontains=query)
+        elif field == 'user':
+            invoices = invoices.filter(user__username__icontains=query)
+        elif field == 'store':
+            invoices = invoices.filter(store__name__icontains=query)
+        elif field == 'customer_name':
+            invoices = invoices.filter(customer_name__icontains=query)
+        elif field == 'payment_method':
+            invoices = invoices.filter(payment_method__icontains=query)
+
+    try:
+        if start_date:
+            start = datetime.strptime(start_date, "%Y-%m-%d")
+            invoices = invoices.filter(created_at__gte=start)
+        if end_date:
+            end = datetime.strptime(end_date, "%Y-%m-%d")
+            end = end.replace(hour=23, minute=59, second=59)
+            invoices = invoices.filter(created_at__lte=end)
+    except ValueError:
+        pass
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Invoices"
+
+    headers = [
+        "Invoice Number", "Cashier", "Store", "Customer Name", "Total Amt", "Payment Mtd",
+        "Tax", "Discount", "Final Total", "Amount Paid", "Change", "Created At"
+    ]
+    ws.append(headers)
+
+    # Track totals
+    total_total_amt = 0
+    total_tax = 0
+    total_discount = 0
+    total_final_total = 0
+    total_amount_paid = 0
+    total_change = 0
+
+    for invoice in invoices:
+        total_amt = float(invoice.total_amount) if invoice.total_amount is not None else 0
+        tax = float(invoice.tax) if invoice.tax is not None else 0
+        discount = float(invoice.discount) if invoice.discount is not None else 0
+        final_total = float(invoice.final_total) if invoice.final_total is not None else 0
+        amount_paid = float(invoice.amount_paid) if invoice.amount_paid is not None else 0
+        change = float(invoice.change) if invoice.change is not None else 0
+
+        ws.append([
+            invoice.invoice_number or '',
+            invoice.user.username if invoice.user else '',
+            invoice.store.name if invoice.store else '',
+            invoice.customer_name or '',
+            total_amt,
+            invoice.payment_method or '',
+            tax,
+            discount,
+            final_total,
+            amount_paid,
+            change,
+            invoice.created_at.strftime("%d-%m-%Y %H:%M") if invoice.created_at else ''
+        ])
+
+        total_total_amt += total_amt
+        total_tax += tax
+        total_discount += discount
+        total_final_total += final_total
+        total_amount_paid += amount_paid
+        total_change += change
+
+    # Add totals row
+    total_row = [
+        "TOTAL", "", "", "", 
+        total_total_amt, "", 
+        total_tax, total_discount, 
+        total_final_total, total_amount_paid, 
+        total_change, ""
+    ]
+    ws.append(total_row)
+
+    # Adjust column widths nicely
+    for i, column in enumerate(ws.columns, 1):
+        max_length = max(len(str(cell.value)) for cell in column if cell.value)
+        ws.column_dimensions[get_column_letter(i)].width = max(12, max_length + 2)
+
+    # Create a histogram (bar chart) of total amounts per cashier (user)
+    # Prepare data: Sum final_total per user
+    from collections import defaultdict
+    user_totals = defaultdict(float)
+    for invoice in invoices:
+        user = invoice.user.username if invoice.user else 'Unknown'
+        final_total = float(invoice.final_total) if invoice.final_total is not None else 0
+        user_totals[user] += final_total
+
+    # Create a new sheet for the chart data
+    chart_sheet = wb.create_sheet(title="Totals by Cashier")
+    chart_sheet.append(["Cashier", "Total Final Amount"])
+
+    for user, amount in user_totals.items():
+        chart_sheet.append([user, amount])
+
+    # Create BarChart
+    chart = BarChart()
+    chart.title = "Total Sales by Cashier"
+    chart.x_axis.title = "Cashier"
+    chart.y_axis.title = "Total Final Amount"
+
+    data = Reference(chart_sheet, min_col=2, min_row=1, max_row=chart_sheet.max_row)
+    cats = Reference(chart_sheet, min_col=1, min_row=2, max_row=chart_sheet.max_row)
+    chart.add_data(data, titles_from_data=True)
+    chart.set_categories(cats)
+    chart.height = 10  # default is 7.5
+    chart.width = 20   # default is 15
+
+    chart_sheet.add_chart(chart, "D2")
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    filename = f"Invoices_{datetime.now().strftime('%Y%m%d%H%M%S')}.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
+
+
+from datetime import datetime, time
+from django.shortcuts import render
+from django.db.models import Sum
+from .models import CustomerInvoice
+from django.db.models import Sum
+
+def invoice_list_today(request):
+    today = datetime.today()
+    start_of_day = datetime.combine(today, time.min)
+    end_of_day = datetime.combine(today, time.max)
+
+    invoices = CustomerInvoice.objects.filter(
+        created_at__gte=start_of_day,
+        created_at__lte=end_of_day
+    ).order_by('-created_at')
+
+    total_sum = invoices.aggregate(total=Sum('total_amount'))['total'] or 0
+
+    context = {
+        'invoices': invoices,
+        'total_sum': total_sum,  # pass the total sum here!
+    }
+    return render(request, 'billing/invoice_list.html', context)
+
+
+import csv
+import openpyxl
+from django.http import HttpResponse
+from .models import Customer  # Adjust if your model is elsewhere
+
+def export_customers_csv(request):
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename=customers.csv'
+
+    writer = csv.writer(response)
+    writer.writerow(['ID', 'Name', 'Phone Number'])
+
+    for c in Customer.objects.all():
+        writer.writerow([c.id, c.name, c.phone_number or '—'])
+
+    return response
+
+
+def export_customers_excel(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Customers"
+
+    ws.append(['ID', 'Name', 'Phone Number'])
+
+    for c in Customer.objects.all():
+        ws.append([c.id, c.name, c.phone_number or '—'])
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=customers.xlsx'
+    wb.save(response)
+    return response

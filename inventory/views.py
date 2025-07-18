@@ -230,3 +230,62 @@ from .models import StockTransfer
 def stockTransfer_table(request):
     stock_transfers = StockTransfer.objects.all()  # Get all stock transfers
     return render(request, 'inventory/stockTransfer_table.html', {'stock_transfers': stock_transfers})
+
+
+#========================================================================
+# Print Requisition items assosicated with requisition 
+
+from django.http import HttpResponse
+from django.shortcuts import render, get_object_or_404
+from .models import Requisition, RequisitionItem
+
+def requisition_details(request, requisition_number):
+    try:
+        print(f"Fetching requisition: {requisition_number}")  # Debugging
+        requisition = Requisition.objects.get(requisition_number=requisition_number)
+        requisition_items = RequisitionItem.objects.filter(requisition=requisition)
+        return render(request, 'inventory/requisition_detail.html', {'requisition': requisition, 'requisition_items': requisition_items})
+    except Requisition.DoesNotExist:
+        return HttpResponse(f"No requisition found for number: {requisition_number}", status=404)
+
+
+
+
+from django.shortcuts import render, redirect
+from django.urls import reverse
+from .forms import RequisitionSearchForm
+
+def requested_items_form(request):
+    form = RequisitionSearchForm()
+    return render(request, 'inventory/requested_items_form.html', {'form': form})
+
+from django.shortcuts import render, get_object_or_404
+from inventory.models import Requisition, RequisitionItem, StockTransfer
+from django.db.models import Sum
+from django.http import HttpResponse
+from django.shortcuts import render, get_object_or_404
+from inventory.models import Requisition, RequisitionItem, StockTransfer
+
+def view_requisition(request):
+    print("Received Request Method:", request.method)
+    print("POST Data:", request.POST)
+    print("GET Data:", request.GET)
+
+    # Get requisition_number (since requisition_id is missing)
+    requisition_number = request.POST.get("requisition_number") or request.GET.get("requisition_number")
+
+    if not requisition_number:
+        return HttpResponse("<h3 style='color:red;'>Error: Requisition Number is required.</h3>")
+
+    try:
+        requisition = Requisition.objects.get(requisition_number=requisition_number)
+    except Requisition.DoesNotExist:
+        return HttpResponse("<h3 style='color:red;'>Error: Requisition not found.</h3>")
+
+    requisition_items = RequisitionItem.objects.filter(requisition=requisition)
+
+    return render(request, 'inventory/requisition_details.html', {
+        'requisition': requisition,
+        'requisition_items': requisition_items,
+    })
+

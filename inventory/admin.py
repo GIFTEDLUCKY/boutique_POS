@@ -2,23 +2,27 @@ from django.contrib import admin
 from .models import WarehouseStock, Requisition, RequisitionItem, StockTransfer
 from store.models import StoreProduct
 
-# Register WarehouseStock as it is
 from django.contrib import admin
+from django.db.models import Min
+from store.models import Product
 from .models import WarehouseStock
+from .forms import WarehouseStockForm
 
-# Define the WarehouseStockAdmin class
 class WarehouseStockAdmin(admin.ModelAdmin):
-    list_display = ('product_name', 'quantity')  # Customize the columns to show these fields
-    search_fields = ('product__name',)  # Allow searching by product name
-    
-    def product_name(self, obj):
-        return obj.product.name  # Access the name of the related product
+    form = WarehouseStockForm  # Use the corrected form in Django Admin
 
-    product_name.admin_order_field = 'product__name'  # Make the product name sortable
-    product_name.short_description = 'Product Name'  # Change the column header text
+    def formfield_for_foreignkey(self, db_field, request, **kwargs):
+        if db_field.name == "product":
+            unique_product_ids = (
+                Product.objects.values('name')
+                .annotate(product_id=Min('id'))
+                .values_list('product_id', flat=True)
+            )
+            kwargs["queryset"] = Product.objects.filter(id__in=unique_product_ids).order_by('name')
+        return super().formfield_for_foreignkey(db_field, request, **kwargs)
 
-# Register the model with the customized admin class
 admin.site.register(WarehouseStock, WarehouseStockAdmin)
+
 
 
 @admin.register(Requisition)

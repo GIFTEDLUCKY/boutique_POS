@@ -8,24 +8,43 @@
     <!-- Page title -->
     <div class="row">
         <div class="col text-center">
-            <h1 style="color: #452a2a;" class=" mt-4">Welcome to the GLIMS Multi-Store</h1>
+            <h1 style="color: #452a2a;" class="mt-4">Welcome to the GLIMS Multi-Store</h1>
             <p class="lead">Manage your stores and transactions from a single dashboard.</p>
         </div>
     </div>
 
+    <!-- Animations styles -->
+    <style>
+        /* Fade-in effect */
+        .fade-in {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeIn 1s ease-in-out forwards;
+        }
+
+        @keyframes fadeIn {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Zoom-on-hover effect */
+        .zoom:hover {
+            transform: scale(1.05);
+            transition: transform 0.3s ease-in-out;
+        }
+    </style>
 
     <div class="row mt-2">
-        <div class="col-md-4 mt-4">
-            <img src="{% static 'images/store1.jpg' %}" class="img-fluid rounded shadow-sm" alt="Store 1" style="width: 400px; height: 350px; object-fit: cover;">
-            
+        <div class="col-md-4 mt-4 fade-in">
+            <img src="{% static 'images/boutique_1.jpg' %}" class="img-fluid rounded shadow-sm zoom" alt="Store 1" style="width: 400px; height: 350px; object-fit: cover;">
         </div>
-        <div class="col-md-4 mt-4">
-            <img src="{% static 'images/store2.jpg' %}" class="img-fluid rounded shadow-sm" alt="Store 2" style="width: 400px; height: 350px; object-fit: cover;">
-            
+        <div class="col-md-4 mt-4 fade-in" style="animation-delay: 0.3s;">
+            <img src="{% static 'images/boutique_3.jpg' %}" class="img-fluid rounded shadow-sm zoom" alt="Store 2" style="width: 400px; height: 350px; object-fit: cover;">
         </div>
-        <div class="col-md-4 mt-4">
-            <img src="{% static 'images/store3.jpg' %}" class="img-fluid rounded shadow-sm" alt="Store 3" style="width: 400px; height: 350px; object-fit: cover;">
-            
+        <div class="col-md-4 mt-4 fade-in" style="animation-delay: 0.6s;">
+            <img src="{% static 'images/boutique_2.jpg' %}" class="img-fluid rounded shadow-sm zoom" alt="Store 3" style="width: 400px; height: 350px; object-fit: cover;">
         </div>
     </div>
 
@@ -34,11 +53,5 @@
         Top
         </a>
     </div>
-    
-
-    
-
-
-
 
 {% endblock %}

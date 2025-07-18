@@ -73,12 +73,16 @@
 
 <div class="container">
 
-
     <div class="row">
         <div class="form-container">
-            <h4>Add New Product</h4>
-            <form method="post">
+            <h4>{% if product.pk %}Edit Product{% else %}Add New Product{% endif %}</h4>
+            <form method="post" action="{% if product.pk %}{% url 'store:edit_product' product.pk %}{% else %}{% url 'store:add_product' %}{% endif %}">
                 {% csrf_token %}
+                <div class="form-group">
+                    <label for="id_barcode">Barcode</label>
+                    {{ form.barcode }}
+                </div>
+                
                 <div class="form-group">
                     <label for="category">Category</label>
                     {{ form.category }}
@@ -127,6 +131,9 @@
                 <button type="submit" class="btn btn" style="background-color: #6A4E23; color: white;">Save Product</button>
             </form>
         </div>
+    
+    
+
 
         <div class="table-container">
             <h4>Products List</h4>
@@ -155,13 +162,13 @@
 
             <div class="form-row align-items-center mb-3 button-container">
                 <div class="col-auto">
-                    <a href="{% url 'store:add_product' %}?search_field={{ search_field }}&search_value={{ search_value }}&export=1" class="btn btn-success">Export</a>
+                    <a href="{% url 'store:add_product' %}?search_field={{ search_field }}&search_value={{ search_value }}&export=1" class="btn btn-success" style="background-color: #8b4513; color: #fff;"s>Export</a>
                 </div>
-                <div class="col-auto">
+                <!--<div class="col-auto">
                     <a href="{% url 'store:manage_tax_discount' %}" class="btn btn" style="background-color: #8b4513; color: #fff;">
                         Manage Tax and Discount
                     </a>
-                </div>
+                </div>-->
             </div>
 
             <div class="table-responsive">
@@ -198,7 +205,8 @@
                             <td>{{ product.selling_price }}</td>
                             <td>{{ product.discount }}</td>
                             <td>{{ product.product_tax }}</td>
-                            <td>{{ product.discounted_price|floatformat:2 }}</td>
+                            <td>{{ product.taxed_price|floatformat:2 }}</td>
+
                             <td>{{ product.assumed_profit|floatformat:2 }}</td>
                             <td>
                                 {% if product.status %}
@@ -215,7 +223,11 @@
                             <td>
                                 <div class="action-buttons">
                                     <a href="{% url 'store:edit_product' product.id %}" class="btn btn-warning btn-sm">Edit</a>
-                                    <a href="{% url 'store:delete_product' product.id %}" class="btn btn-danger btn-sm">Delete</a>
+                                    <a href="#" class="btn btn-danger btn-sm" data-bs-toggle="modal" data-bs-target="#deleteConfirmModal"
+                                    data-url="{% url 'store:delete_product' product.id %}" data-name="{{ product.name }}">
+                                    Delete
+                                    </a>
+
                                 </div>
                             </td>
                         </tr>
@@ -228,7 +240,82 @@
 </div>
 
 
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+      <div class="modal-content" style="height: 30vh; display: flex; flex-direction: column; justify-content: center;">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="deleteConfirmModalLabel">Confirm Delete</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body text-center">
+          Are you sure you want to delete <strong id="productNameToDelete"></strong>?
+        </div>
+        <div class="modal-footer justify-content-center">
+          <form method="post" id="deleteForm">
+            {% csrf_token %}
+            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+            <button type="submit" class="btn btn-danger">Yes, Delete</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  
 
-    
+
+
+<script>
+    function handleBarcodeKey(event) {
+        if (event.key === 'Enter') {
+            event.preventDefault();
+            scanBarcode();
+        }
+    }
+
+    function scanBarcode() {
+        const barcodeInput = document.getElementById('barcode');
+        const barcode = barcodeInput.value.trim();
+
+        if (!barcode) {
+            alert("Please scan or enter a barcode.");
+            return;
+        }
+
+        fetch(`/store/scan-barcode/?barcode=${encodeURIComponent(barcode)}`)
+            .then(response => response.json())
+            .then(data => {
+                if (data.product_id) {
+                    // Fill other form fields here
+                    document.getElementById('product_name').value = data.name;
+                    document.getElementById('price').value = data.price;
+                } else {
+                    alert(data.message);
+                }
+
+                barcodeInput.value = '';
+                barcodeInput.focus();
+            })
+            .catch(error => {
+                console.error('Error:', error);
+            });
+    }
+</script>
+
+<script>
+    const deleteModal = document.getElementById('deleteConfirmModal');
+    const productNameSpan = document.getElementById('productNameToDelete');
+    const deleteForm = document.getElementById('deleteForm');
+
+    deleteModal.addEventListener('show.bs.modal', function (event) {
+        const button = event.relatedTarget;
+        const deleteUrl = button.getAttribute('data-url');
+        const productName = button.getAttribute('data-name');
+
+        deleteForm.action = deleteUrl;
+        productNameSpan.textContent = productName;
+    });
+</script>
+
 
 {% endblock %}

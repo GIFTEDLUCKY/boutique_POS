@@ -1,0 +1,150 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+<style>
+    @media (max-width: 640px) {
+        body, table, th, td, label, input, select, button, h2 {
+            font-size: 12px !important;
+        }
+
+        table {
+            min-width: unset !important;
+        }
+
+        form label, form select, form input {
+            display: block;
+            width: 100%;
+            margin-bottom: 0.5rem;
+        }
+
+        form.inline-flex {
+            flex-direction: column;
+            align-items: stretch;
+            gap: 0.5rem;
+        }
+    }
+</style>
+
+<h2 class="text-xl font-bold mb-4">Profit and Loss Report</h2>
+
+<form method="get" class="mb-4 flex flex-wrap gap-2 items-center">
+    <label for="store">Store:</label>
+    <select name="store" id="store" class="border px-2 py-1 w-full sm:w-auto">
+        <option value="">-- All Stores --</option>
+        {% for s in stores %}
+            <option value="{{ s.id }}" {% if s.id == selected_store %}selected{% endif %}>
+                {{ s.name }}
+            </option>
+        {% endfor %}
+    </select>
+
+    <label for="start">From:</label>
+    <input type="date" name="start" id="start" value="{{ start_date }}" class="border px-2 py-1 w-full sm:w-auto">
+
+    <label for="end">To:</label>
+    <input type="date" name="end" id="end" value="{{ end_date }}" class="border px-2 py-1 w-full sm:w-auto">
+
+    <button type="submit" class="btn btn-primary">Filter</button>
+<a href="{% url 'profit_and_loss' %}" class="btn btn-secondary">Reset</a>
+<a href="{% url 'export_profit_loss_excel' %}?store={{ selected_store }}&start={{ start_date }}&end={{ end_date }}" class="btn btn-success">Export to Excel</a>
+
+
+</form>
+
+<div class="mb-4 flex flex-wrap gap-2">
+
+    <span class="inline-block p-2 bg-green-100 rounded shadow text-green-800 font-semibold">
+        Total Revenue ₦: {{ total_revenue|floatformat:2 }}
+    </span>
+
+    <span class="inline-block p-2 bg-red-100 rounded shadow text-red-800 font-semibold">
+        Total Cost ₦: {{ total_cost|floatformat:2 }}
+    </span>
+
+    <span class="inline-block p-2 bg-blue-100 rounded shadow text-blue-800 font-semibold">
+        Profit ₦: {{ total_profit|floatformat:2 }}
+    </span>
+
+    <span class="inline-block p-2 bg-yellow-100 rounded shadow text-yellow-800 font-semibold">
+        Loss ₦: {{ total_loss|floatformat:2 }}
+    </span>
+
+</div>
+
+
+
+
+<div class="overflow-auto">
+    <table class="w-full min-w-[800px] text-xs sm:text-sm border-collapse border mb-4">
+
+    <thead>
+        <tr class="bg-gray-200">
+            <th class="border px-2 py-1">S/NO.</th>
+            <th class="border px-2 py-1">Store</th>
+            <th class="border px-2 py-1">Product</th>
+            <th class="border px-2 py-1">Total Qty</th>
+            <th class="border px-2 py-1">Unit Cost</th>
+            <th class="border px-2 py-1">Unit Price</th>
+            <th class="border px-2 py-1">Final Selling Price</th>   <!-- NEW -->
+            <th class="border px-2 py-1">Total Cost</th>
+            <th class="border px-2 py-1">Total Revenue</th>
+            <th class="border px-2 py-1">Total Profit</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for tx in invoices %}
+        <tr>
+            <td class="border px-2 py-1">{{ forloop.counter }}</td>
+            <td class="border px-2 py-1">{{ tx.store_name }}</td>
+
+            <td class="border px-2 py-1">{{ tx.product_name }}</td>
+            <td class="border px-2 py-1">{{ tx.total_qty }}</td>
+
+            <td class="border px-2 py-1">
+                {{ tx.unit_cost|floatformat:2|default_if_none:"-" }}
+            </td>
+            <td class="border px-2 py-1">
+                {{ tx.unit_price|floatformat:2|default_if_none:"-" }}
+            </td>
+            <td class="border px-2 py-1">
+                {{ tx.final_selling_price|floatformat:2|default_if_none:"-" }}
+            </td>
+            
+
+            <td class="border px-2 py-1">{{ tx.total_cost|floatformat:2 }}</td>
+            <td class="border px-2 py-1">{{ tx.total_revenue|floatformat:2 }}</td>
+            <td class="border px-2 py-1">{{ tx.total_profit|floatformat:2 }}</td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="9" class="text-center py-2">No transactions found.</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+<!-- Somewhere in your template where you want to show the charts -->
+
+<div style="display: flex; gap: 20px; flex-wrap: wrap;">
+  <div style="width:450px; text-align: center;">
+    {% if store_bar_chart %}
+    <h3>Profit/Loss by Store</h3>
+    <img src="data:image/png;base64,{{ store_bar_chart }}" alt="Store Bar Chart" style="max-width: 100%; height: auto;" />
+
+    {% else %}
+      <p>No data to display for Profit by Store.</p>
+    {% endif %}
+  </div>
+  <div style="flex: 1; min-width: 300px; text-align: center;">
+    
+    {% if product_bar_chart %}
+    <h3>Profit/Loss by Product</h3>
+    <img src="data:image/png;base64,{{ product_bar_chart }}" alt="Product Bar Chart">
+    {% else %}
+      <p>No data to display for Profit by Product.</p>
+    {% endif %}
+  </div>
+</div>
+
+{% endblock %}

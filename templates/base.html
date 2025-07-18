@@ -12,7 +12,6 @@
         <!-- Fallback to Bootstrap CDN -->
         <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
 
-        <link rel="stylesheet" href="{% static 'css/bootstrap.min.css' %}">
       
         <link rel="icon" type="image/django.ico" href="{% static 'django.ico' %}">
 
@@ -33,7 +32,7 @@
 
             /* Navbar Styling */
             .navbar {
-                background-color: #8b4513; /* Royal blue */
+                background-color: #B59410; /* Royal blue */
                 color: white;
                 position: sticky;
                 top: 0;
@@ -75,7 +74,7 @@
 
             /* Footer Styling */
             footer {
-                background-color: #8b4513;
+                background-color: #B59410;
                 color: white;
                 text-align: center;
                 padding: 10px 0;
@@ -108,7 +107,7 @@
 
         
         <!-- Navbar -->
-        <nav class="navbar navbar-expand-lg">
+        <nav class="navbar navbar-expand-lg mb-4">
             <div class="container-fluid">
                 <a class="navbar-brand" href="#">GLIMS Inventory</a>
                 <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -131,9 +130,13 @@
                                         <li><a class="dropdown-item" href="{% url 'expenses:add_expenditure' %}">Add Expense</a></li>
                                         <li><a class="dropdown-item" href="{% url 'expenses:expense_list' %}">View Expenses</a></li>
                                         <li><a class="dropdown-item" href="{% url 'expenses:add_revenue' %}">Add Revenue</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'expenses:revenue_list' %}">View Revenue List</a>
-                                        </li>
+                                        <li><a class="dropdown-item" href="{% url 'expenses:revenue_list' %}">View Revenue List</a></li>
                                         <li><a class="dropdown-item" href="{% url 'billing:all_transactions' %}">All Transactions</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'billing:invoice_list' %}">Invoices</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'price_history' %}">View Price History</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'profit_and_loss' %}">Profit & Loss</a></li>
+                                        <li><a class="dropdown-item" href="{% url 'billing:customer_list' %}">Customers</a></li>
+                                    
                                     </ul>
                                 </li>
                                 <li class="nav-item dropdown">
@@ -146,8 +149,8 @@
                                         <li><a class="dropdown-item" href="{% url 'store:add_store' %}">Manage Store</a></li>
                                         <li><a class="dropdown-item" href="{% url 'store:add_product' %}">Add Product</a></li>
                                         <li><a class="dropdown-item" href="{% url 'inventory:add_stock' %}">Add Warehouse Stock</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'inventory:stock_transfer_form' %}"> Transfer Stock</a></li> <!-- Add this line -->
-                                        <li><a class="dropdown-item" href="{% url 'inventory:stock_transfer_table' %}">Stock Transfer List</a></li> <!-- Add this line -->
+                                        <li><a class="dropdown-item" href="{% url 'inventory:requested_items_form' %}">View Requested Items</a></li> 
+                                        
                                     </ul>
                                     
                                 </li>
@@ -163,7 +166,8 @@
                                     </a>
                                     <ul class="dropdown-menu" aria-labelledby="navbarDropdownAccount">
                                         <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:sales_view' %}">Sales</a></li>
-                                        <li><a id="rePrintBillLink" class="dropdown-item" href="{% url 'billing:transaction_search' %}">Re-Print Bill</a></li>
+                                        <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:invoice_list_today' %}">Today's Invoices</a></li>
+                                        <!--<li><a id="rePrintBillLink" class="dropdown-item" href="{% url 'billing:transaction_search' %}">Re-Print Bill</a></li>-->
                                     </ul>
                                     
                                         
@@ -225,7 +229,7 @@
         
         <!-- Footer -->
         <footer>
-            <p>&copy; 2025 GLIMS Inventory. All Rights Reserved.+234 806 718 4880</p>
+            <p>&copy; 2025 GLIMS Inventory. All Rights Reserved.+234 8067184880</p>
         </footer>
 
                 <!-- Load Bootstrap Locally -->
@@ -280,24 +284,38 @@
     });
     </script>
     
-
+<!-- Bootstrap JS (Load from Static First) -->
 <script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
 
-<!-- Fallback to CDN if Local Fails -->
-<noscript>
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css">
-</noscript>
+<!-- Fallback to Bootstrap CDN if Local Fails -->
 <script>
-    var testBootstrap = document.createElement('div');
-    testBootstrap.className = 'd-none';
-    document.body.appendChild(testBootstrap);
-
-    if (window.getComputedStyle(testBootstrap).display === 'none') {
-        document.write('<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"><\/script>');
+    if (typeof bootstrap === "undefined") {
+        var script = document.createElement("script");
+        script.src = "https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js";
+        document.head.appendChild(script);
     }
 </script>
 
-<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<!-- Navbar Dropdown on Hover -->
+<script>
+    document.addEventListener("DOMContentLoaded", function(){
+        var dropdowns = document.querySelectorAll('.nav-item.dropdown');
+
+        dropdowns.forEach(function(dropdown) {
+            dropdown.addEventListener("mouseenter", function(){
+                let menu = this.querySelector(".dropdown-menu");
+                menu.classList.add("show");
+            });
+
+            dropdown.addEventListener("mouseleave", function(){
+                let menu = this.querySelector(".dropdown-menu");
+                menu.classList.remove("show");
+            });
+        });
+    });
+</script>
+
+
 
     </body>
     </html>

@@ -27,22 +27,25 @@
             font-size: 12px; /* Smaller font size suitable for receipts */
         }
 
-        h2, h3 {
-            font-size: 14px;
+        h2, h3, hr {
+            font-size: 13px;
             text-align: center;
-            margin: 2px 0;
+            margin: 1px 0;
         }
 
         p {
-            margin: 5px 0;
-            font-size: 12px;
+            margin: 2px 0; /* was 5px 0 */
+            font-size: 11px; /* slightly smaller */
+            line-height: 1.2; /* tighter line height */
         }
+
 
         table {
             width: 100%;
             border-collapse: collapse;
             margin: 10px 0;
             border: 0.2px solid black;
+            line-height: 1;
         }
 
         table, th, td {
@@ -51,6 +54,7 @@
             text-align: left;
             border: 0.3px solid black;
             text-align: center;
+            padding: 2px; 
         }
 
         th, td {
@@ -77,6 +81,10 @@
             .btn-secondary, #print-button, #cancel-button {
                 display: none; /* Hide buttons on print */
             }
+
+            .navbar {
+                display: none !important;
+            }
         }
     </style>
 </head>
@@ -88,26 +96,24 @@
 
         </div>
         
-        <h2>GLIMS Inventory {{ store_info.store_name }}</h2>
-        <p>{{ store_info.address }}</p>
-        <p>"Bringing your store to your hand " {{ store_info.contact }}</p>
-
+        <h2>GLIMS Inventory </h2>
+<br>
+        <h3>Invoice Details</h3>
         <hr>
 
-        <h3>Invoice Details</h3>
-        <p><strong>Invoice ID:</strong> {{ cart_items.first.cart_id }}</p>
-        <p><strong>Cashier:</strong> {{ user.username }}</p>
-        <p><strong>Location:</strong> {{ store_info.name }}</p>
-        
-        <p><strong>Customer Name:</strong> {{ transaction.customer_name }}</p>
-        <p><strong>Payment Method:</strong> {{ transaction.payment_method }}</p>
+        <p><strong>Invoice No.:</strong> {{ customer_invoice.invoice_number }} &nbsp; &nbsp;&nbsp;&nbsp;
+        <strong>Cashier:</strong> {{ user.username }}</p>
 
-        <p><strong>Date:</strong> {{ customer_invoice.created_at|date:"d-m-Y H:i" }}</p>
+
+        <p><strong>Location:</strong> {{ store_info.store_name }}</p>
+        <p><strong>Customer:</strong> {{ customer_invoice.customer_name }}</p>
+        <p><strong>Paid via:</strong> {{ payment_method_display }} &nbsp;&nbsp;&nbsp;
+            <strong>Date:</strong> {{ customer_invoice.created_at|date:"d-m-Y H:i" }}</p>
 
         <table>
             <thead>
                 <tr>
-                    <th>S/No</th> <!-- Serial Number Column -->
+                    <th>S/No</th>
                     <th>Product</th>
                     <th>Qty</th>
                     <th>Price</th>
@@ -117,11 +123,11 @@
             <tbody>
                 {% for item in cart_items %}
                 <tr>
-                    <td>{{ forloop.counter }}</td> <!-- Serial number using forloop.counter -->
+                    <td>{{ forloop.counter }}</td>
                     <td>{{ item.product.name }}</td>
                     <td>{{ item.quantity }}</td>
-                    <td>{{ item.price }}</td>
-                    <td>{{ item.subtotal }}</td>
+                    <td>{{ item.price|floatformat:2 }}</td>
+                    <td>{{ item.subtotal|floatformat:2 }}</td>
                 </tr>
                 {% empty %}
                 <tr>
@@ -134,38 +140,43 @@
         <hr>
 
         <table>
-            <tr>
-                <td>Subtotal:</td>
-                <td>GH₵ {{ subtotal }}</td>
-            </tr>
-            <tr>
-                <td>Discount:</td>
-                <td>GH₵ {{ discount }}</td>
-            </tr>
-            <tr>
-                <td>Tax:</td>
-                <td>GH₵ {{ tax }}</td>
-            </tr>
             <tr class="total">
-                <td>Total:</td>
-                <td>GH₵ {{ total }}</td>
+                <td><strong>Total:</strong></td>
+                <td>₦ {{ total|floatformat:2 }}</td>
             </tr>
+            <tr>
+                <td><strong>Amount Paid:</strong></td>
+                <td>₦ {{ amount_paid|floatformat:2 }}</td>
+            </tr>
+            
+            <tr>
+                <td><strong>Change/Balance:</strong></td>
+                <td>
+                    {% if amount_paid == 0 or amount_paid is None %}
+                        ₦ 0.00
+                    {% elif change < 0 %}
+                        Balance: ₦ {{ change|floatformat:2 }}
+                    {% else %}
+                        Change: ₦ {{ change|floatformat:2 }}
+                    {% endif %}
+                </td>
+            </tr>
+
         </table>
-        
 
         <p>Thank you for your purchase!</p>
         <p>Store Address: {{ store_info.location }}</p>
-        <p>Contact: {{ store_info.manager_name }}</p>
-
-        <!-- Transaction details here -->
+        <p>Contact: {{ store_info.manager_name }} &nbsp;&nbsp; {{ store_info.manager_contact }}</p>
 
         <div style="text-align: center;">
             {% if qr_code_base64 %}
-                <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code" style="border: 0.5px solid black; width: 100px; height: 100px;">
+                <img src="data:image/png;base64,{{ qr_code_base64 }}" alt="QR Code"
+                    style="border: 0.5px solid black; width: 100px; height: 100px;">
             {% else %}
                 <p>No QR Code available</p>
             {% endif %}
 
+            <p>POS Designed by GLIMS Inventory: +234 806 718 4880</p>
         </div>
 
 <!-- More transaction details here -->
@@ -175,88 +186,101 @@
     </div>
 
     <!-- Buttons -->
-    <div class="invoice-footer">
+    <div class="invoice-footer mt-4 mb-4">
         <button id="print-button" class="btn btn-primary">Print Invoice</button>
         
         <button id="cancel-button" class="btn btn-danger">Cancel Invoice</button>
+
+        {% if next_url %}
+    <div class="text-center mt-4">
+        <a href="{{ next_url }}" class="btn btn-secondary">Return to Invoice List</a>
+    </div>
+{% endif %}
+
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", function () {
-         // Print Button
-         document.getElementById("print-button").addEventListener("click", function () {
-             window.print();
-             clearCartAndRedirect("{% url 'billing:sales_view' %}");
-         });
-     
-         // Cancel Button
-         document.getElementById("cancel-button").addEventListener("click", function () {
-             clearCartAndRedirect("{% url 'billing:sales_view' %}");
-         });
-     
-         // Handle sales, dashboard, and re-print bill links
-         let salesLink = document.getElementById("salesLink");
-         let dashboardLink = document.getElementById("dashboardLink");
-         let rePrintBillLink = document.getElementById("rePrintBillLink");
-     
-         function clearCartAndRedirect(targetUrl) {
-             console.log("Clearing cart...");  // Debugging log
-             fetch("{% url 'billing:clear_cart' %}", {
-                 method: "POST",
-                 headers: {
-                     "X-CSRFToken": "{{ csrf_token }}",
-                     "Content-Type": "application/json",
-                 },
-             })
-             .then(response => response.json())
-             .then(data => {
-                 if (data.status === "success") {
-                     console.log("Cart cleared successfully. Redirecting to:", targetUrl);
-                     window.location.href = targetUrl;
-                 } else {
-                     console.error("Failed to clear the cart.");
-                 }
-             })
-             .catch(error => console.error("Error:", error));
-         }
-     
-         if (salesLink) {
-             salesLink.addEventListener("click", function (e) {
-                 e.preventDefault();
-                 console.log("Sales link clicked.");
-                 clearCartAndRedirect("{% url 'billing:sales_view' %}");
-             });
-         }
-     
-         if (dashboardLink) {
-             dashboardLink.addEventListener("click", function (e) {
-                 e.preventDefault();
-                 console.log("Dashboard link clicked.");
-                 clearCartAndRedirect("{% url 'dashboard:index' %}");
-             });
-         }
-     
-         if (rePrintBillLink) {
-             rePrintBillLink.addEventListener("click", function (e) {
-                 e.preventDefault();
-                 console.log("Re-Print Bill link clicked.");
-                 clearCartAndRedirect("{% url 'billing:transaction_search' %}");
-             });
-         }
-     
-         // Prevent undesired back button behavior after generating an invoice
-         function handleBackButton() {
-             console.log("Back button detected, clearing cart...");
-             clearCartAndRedirect("{% url 'billing:sales_view' %}");
-         }
-     
-         window.addEventListener('popstate', function(event) {
-             handleBackButton();
-         });
-     
-         window.history.pushState(null, "", window.location.href);
-     });
-     </script>
+    document.addEventListener("DOMContentLoaded", function () {
+        const nextUrl = decodeURIComponent("{{ request.GET.next|urlencode }}");
+
+        // Print Button
+        document.getElementById("print-button").addEventListener("click", function () {
+            window.print();
+            const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
+            clearCartAndRedirect(redirectTarget);
+        });
+
+        // Cancel Button
+        document.getElementById("cancel-button").addEventListener("click", function () {
+            const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
+            clearCartAndRedirect(redirectTarget);
+        });
+
+        // Handle sales, dashboard, and re-print bill links
+        let salesLink = document.getElementById("salesLink");
+        let dashboardLink = document.getElementById("dashboardLink");
+        let rePrintBillLink = document.getElementById("rePrintBillLink");
+
+        function clearCartAndRedirect(targetUrl) {
+            console.log("Clearing cart...");  // Debugging log
+            fetch("{% url 'billing:clear_cart' %}", {
+                method: "POST",
+                headers: {
+                    "X-CSRFToken": "{{ csrf_token }}",
+                    "Content-Type": "application/json",
+                },
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    console.log("Cart cleared successfully. Redirecting to:", targetUrl);
+                    window.location.href = targetUrl;
+                } else {
+                    console.error("Failed to clear the cart.");
+                }
+            })
+            .catch(error => console.error("Error:", error));
+        }
+
+        if (salesLink) {
+            salesLink.addEventListener("click", function (e) {
+                e.preventDefault();
+                console.log("Sales link clicked.");
+                clearCartAndRedirect("{% url 'billing:sales_view' %}");
+            });
+        }
+
+        if (dashboardLink) {
+            dashboardLink.addEventListener("click", function (e) {
+                e.preventDefault();
+                console.log("Dashboard link clicked.");
+                clearCartAndRedirect("{% url 'dashboard:index' %}");
+            });
+        }
+
+        if (rePrintBillLink) {
+            rePrintBillLink.addEventListener("click", function (e) {
+                e.preventDefault();
+                console.log("Re-Print Bill link clicked.");
+                clearCartAndRedirect("{% url 'billing:transaction_search' %}");
+            });
+        }
+
+        // Prevent undesired back button behavior after generating an invoice
+        function handleBackButton() {
+            console.log("Back button detected, clearing cart...");
+            const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
+            clearCartAndRedirect(redirectTarget);
+        }
+
+        window.addEventListener('popstate', function(event) {
+            handleBackButton();
+        });
+
+        window.history.pushState(null, "", window.location.href);
+    });
+</script>
+
           
 </body>
 </html>

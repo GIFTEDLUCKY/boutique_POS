@@ -11,39 +11,52 @@
     </div>
 {% endif %}
 
-<div class="container mt-4">
+<div id="customAlert" class="alert alert-warning d-none" role="alert"></div>
+
+<div class="container mt-0">
     <h3 class="mb-4" style="font-size: 1.5rem;">Billing & Sales</h3>
+
+    <form id="search_form">
+        <input type="text" id="product_search" placeholder="Type or scan barcode..." autocomplete="off">
+        <button id="reset_search" type="button" class="btn btn-danger">Reset</button>
+    </form>
+    
     <div class="row">
 
         <!-- Form Section -->
         <div class="col-md-4" style="font-size: 0.8rem; padding-right: 15px;">
             <form method="POST">
                 {% csrf_token %}
-
                 <!-- Customer Details -->
                 <div class="mb-2">
-                    <label for="customer_name" class="form-label" style="font-size: 0.85rem;">Customer Name</label>
+                    
                     <input type="text" class="form-control" id="customer_name" name="customer_name" value="{{ customer_name|default:'' }}" placeholder="Enter customer name" required style="font-size: 0.85rem; padding: 5px 10px;">
                 </div>
 
+                
+
+                <div class="mb-2">
+                    <input type="text" class="form-control" id="phone_number" name="phone_number" value="{{ phone_number|default:'' }}" placeholder="Enter phone number" required style="font-size: 0.85rem; padding: 5px 10px;">
+                </div>
+
                 <!-- Product Selection -->
-                <select multiple class="form-control" name="product_ids" id="product_ids" style="font-size: 0.85rem; padding: 5px 10px;">
+                <select multiple class="form-control" name="product_ids" id="product_ids" style="font-size: 0.85rem; padding: 5px 10px;" size="7">
                     {% for product in products %}
                         <option value="{{ product.id }}" 
+                            data-barcode="{{ product.barcode }}" 
                             data-price="{{ product.selling_price }}" 
                             data-discounted-price="{{ product.discounted_price }}"   
+                            data-taxed-price="{{ product.taxed_price }}"
                             data-discount="{{ product.discount }}" 
-                            data-tax="{{ product.tax }}" 
+                            data-product-tax="{{ product.product_tax }}" 
                             data-stock="{{ product.quantity }}"
-                            data-expiry="{{ product.expiry_date|date:'Y-m-d' }}"> <!-- Added Expiry Date -->
-                            {{ product.name }} - GH₵ {{ product.selling_price }}
+                            data-expiry="{{ product.expiry_date|date:'Y-m-d' }}">
+                            {{ product.name }} - ₦ {{ product.selling_price }}
                         </option>
                     {% empty %}
                         <option disabled>No products available for this store</option>
                     {% endfor %}
                 </select>
-                
-                
 
                 <!-- Quantity Input -->
                 <div class="mb-2">
@@ -79,8 +92,9 @@
                 </div>
                 <div class="mb-2">
                     <button type="button" class="btn btn-success" onclick="calculateChange()" style="font-size: 0.85rem; padding: 5px 10px;">Calculate Change</button>
-                    <div id="change" class="mt-1" style="font-size: 0.75rem;"></div>
+                    <div id="change_display" class="mt-1" style="font-size: 0.75rem;"></div>
                 </div>
+                
             </form>
         </div>
 
@@ -88,86 +102,123 @@
         <div class="col-md-8" style="font-size: 0.9rem;">
             <div class="cart-section">
                 <h4 class="mb-3" style="font-size: 1.2rem;">Cart</h4>
-                <table class="table table-striped table-bordered">
+                <table class="table table-bordered">
                     <thead>
                         <tr>
                             <th>Product</th>
                             <th>Quantity</th>
-                            <th>Selling Price (GH₵0)</th>
-                            <th>Subtotal (GH₵)</th>
-                            <th>Actions</th>
+                            <th>Price (₦)</th>
+                            <th>Subtotal (₦)</th>
+                            <th>Actions</th>  <!-- ONLY ONE Action header -->
                         </tr>
                     </thead>
-                    <tbody id="cart-body">
-                        <!-- Cart Items Will Be Dynamically Added Here -->
+                    <tbody>
+                        <!-- Leave empty. JS will populate -->
                     </tbody>
+
                 </table>
+
 
                 <!-- Total and Checkout Section -->
                 <div class="mt-4">
-                    <h5>Total: <span id="total-amount">GH₵ 0.00</span></h5>
-                    <button class="btn btn-primary" id="generate_invoice_btn" onclick="checkout()">Generate Invoice</button>
-                    <button type="button" id="resetCartButton" class="btn btn-danger">Reset Cart</button>
+                    <!-- Display total from backend -->
+                    <h1>Total: ₦ <span id="total_display">0.00</span></h1>
+
+                    <button type="button" class="btn btn-primary" id="generate_invoice_btn">
+                    Generate Invoice
+                    </button>
+
+
+                  
+                    <button id="resetCartButton" class="btn btn-danger">Reset Cart</button>
+
+
+                </div>
+
+                <!-- Visible Change Result Below Cart -->
+                <div class="mt-4 d-flex align-items-center justify-content-center" style="gap: 1rem; width: 100%;">
+                    <label for="change" class="form-label mb-0" style="font-size: 3rem; font-weight: bold; color: green;">Change</label>
+                    <span style="font-size: 3rem; font-weight: bold; color: green;">₦:</span>    
+                    <input type="text" id="change" name="change" readonly style="
+                        font-size: 3rem;
+                        padding: 10px;
+                        font-weight: bold;
+                        text-align: left;
+                        border: none;
+                        background: transparent;
+                        color: green;
+                        width: auto;
+                        min-width: 200px;
+                    ">
                 </div>
             </div>
         </div>
+
     </div>
 </div>
-
 
 
             
 
 
-                        <!-- Edit Quantity Modal -->
-            <div class="modal fade" id="editQuantityModal" tabindex="-1" aria-labelledby="editQuantityModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="editQuantityModalLabel">Edit Quantity</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            <label for="newQuantity">Enter new quantity:</label>
-                            <input type="number" class="form-control" id="newQuantity" min="1">
-                            <div id="error-message" class="text-danger mt-2" style="display: none;">Invalid quantity entered. Please enter a valid number greater than 0.</div>
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="saveQuantityButton">Save</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-                        <!-- Delete Item Confirmation Modal -->
-            <div class="modal fade" id="deleteConfirmationModal" tabindex="-1" aria-labelledby="deleteConfirmationModalLabel" aria-hidden="true">
-                <div class="modal-dialog">
-                    <div class="modal-content">
-                        <div class="modal-header">
-                            <h5 class="modal-title" id="deleteConfirmationModalLabel">Confirm Delete</h5>
-                            <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                        </div>
-                        <div class="modal-body">
-                            Are you sure you want to remove this item from the cart?
-                        </div>
-                        <div class="modal-footer">
-                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-danger" id="confirmDeleteButton">Delete</button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
+<!-- Edit Quantity Modal -->
+<div class="modal fade" id="editQuantityModal" tabindex="-1" aria-labelledby="editQuantityLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <form id="editQuantityForm">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="editQuantityLabel">Edit Quantity</h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
+        <div class="modal-body">
+          <input type="hidden" id="editItemId" name="item_id" />
+          <div class="mb-3">
+            <label for="quantityInput" class="form-label">Quantity</label>
+            <input type="number" class="form-control" id="quantityInput" name="quantity" min="1" required />
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Save changes</button>
+        </div>
+      </form>
     </div>
+  </div>
 </div>
+
+
+
+<!-- Delete Confirmation Modal -->
+<div class="modal fade" id="deleteConfirmModal" tabindex="-1" aria-labelledby="deleteConfirmLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="deleteConfirmLabel">Confirm Delete</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Are you sure you want to delete this item from the cart?
+        <input type="hidden" id="deleteItemId" />
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" id="confirmDeleteBtn" class="btn btn-danger" data-bs-dismiss="modal">Delete</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
+
+
+
+
 
 <!-- Reset Cart Modal -->
 <div class="modal fade" id="resetCartModal" tabindex="-1" aria-labelledby="resetCartModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title" id="resetCartModalLabel">Reset Cart</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -185,10 +236,10 @@
 
 
 <!-- Generate Invoice Modal -->
-<div class="modal fade" id="invoiceConfirmModal" tabindex="-1" aria-labelledby="invoiceConfirmModalLabel" aria-hidden="true">
+<div class="modal fade" id="invoiceConfirmModal" tabindex="-1" aria-labelledby="invoiceConfirmModalLabel">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title" id="invoiceConfirmModalLabel">Generate Invoice</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -197,7 +248,8 @@
             </div>
             <div class="modal-footer">
                 <!-- Cancel button to dismiss the modal -->
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal" id="invoiceCancelBtn">Cancel</button>
+
                 <!-- Confirm button to generate the invoice -->
                 <button type="button" id="confirmInvoiceBtn" class="btn btn-primary">Yes, Generate Invoice</button>
             </div>
@@ -206,33 +258,51 @@
 </div>
 
 
+
 <!-- Empty Cart Modal -->
-<div class="modal fade" id="emptyCartModal" tabindex="-1" role="dialog" aria-labelledby="emptyCartModalLabel" aria-hidden="true">
-    <div class="modal-dialog" role="document">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="emptyCartModalLabel">Your Cart is Empty</h5>
-                <button type="button" class="close" data-dismiss="modal" aria-label="Close">
-                    <span aria-hidden="true">&times;</span>
-                </button>
-            </div>
-            <div class="modal-body">
-                <p>Please add items to your cart before proceeding with checkout.</p>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" id="cancelInvoiceBtn">Cancel</button>
-            </div>
-        </div>
+<div class="modal fade" id="emptyCartModal" tabindex="-1" aria-labelledby="emptyCartModalLabel" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="emptyCartModalLabel">Your Cart is Empty</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Please your cart is empty, there is nothing to clear.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
     </div>
+  </div>
 </div>
 
+
+
+<!-- Empty Cart Modal -->
+<div class="modal fade" id="emptyCartModal1" tabindex="-1" aria-labelledby="emptyCartModal1Label" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header bg-danger text-white">
+        <h5 class="modal-title" id="emptyCartModal1Label">Your Cart is Empty</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>Please add items to your cart before Generating Invoice.</p>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+      </div>
+    </div>
+  </div>
+</div>
 
 
 <!-- Modal for Low Stock Warning -->
 <div class="modal fade" id="lowStockModal" tabindex="-1" aria-labelledby="lowStockModalLabel" aria-hidden="true">
     <div class="modal-dialog">
       <div class="modal-content">
-        <div class="modal-header">
+        <div class="modal-header bg-danger text-white">
           <h5 class="modal-title" id="lowStockModalLabel">Low Stock Warning</h5>
           <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
         </div>
@@ -251,7 +321,7 @@
 <div class="modal fade" id="expiryModal" tabindex="-1" aria-labelledby="expiryModalLabel" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
+            <div class="modal-header bg-danger text-white">
                 <h5 class="modal-title" id="expiryModalLabel">Product Expiry Alert</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -265,552 +335,52 @@
     </div>
 </div>
 
+
+
+<!-- Product Not Found Modal -->
+<div class="modal fade" id="productNotFoundModal" tabindex="-1" aria-labelledby="productNotFoundModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+      <div class="modal-content">
+        <div class="modal-header bg-danger text-white">
+          <h5 class="modal-title" id="productNotFoundModalLabel"><i class="bi bi-exclamation-triangle-fill me-1"></i> Product Not Found </h5>
+          <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+        </div>
+        <div class="modal-body d-flex align-items-center">
+          <!-- Spinner -->
+          <div id="spinnerIcon" class="spinner-border text-warning me-2" role="status" style="display: none;">
+            <span class="visually-hidden">Loading...</span>
+          </div>
+          <span id="productNotFoundMessage">Product not found.</span>
+        </div>
+        <div class="modal-footer">
+          <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+        </div>
+      </div>
+    </div>
+  </div>
   
-  <input type="hidden" id="invoice_id" value="{{ transaction_cart.id }}">
 
-
-  <script>
-    let cart = [];
-const cartBody = document.getElementById('cart-body');
-const totalAmount = document.getElementById('total-amount');
-const changeDiv = document.getElementById('change');
-const invoiceId = "{{ invoice_id }}"; // Dynamically passed from Django template
-
-function addToCart() {
-    const productSelect = document.getElementById('product_ids');
-    const quantityInput = document.getElementById('quantity');
-
-    const selectedProducts = Array.from(productSelect.selectedOptions);
-    const quantity = parseInt(quantityInput.value) || 1;
-
-    selectedProducts.forEach(option => {
-        const productId = option.value;
-        const productName = option.text.split(' - GH₵')[0];
-        const sellingPrice = parseFloat(option.getAttribute('data-price')) || 0;
-        const discountedPrice = parseFloat(option.getAttribute('data-discounted-price')) || sellingPrice;
-
-        const discount = parseFloat(option.getAttribute('data-discount')) || 0;  // ✅ Capture discount
-        const tax = parseFloat(option.getAttribute('data-tax')) || 0;            // ✅ Capture tax
-
-        const existingItem = cart.find(item => item.id === productId);
-        if (existingItem) {
-            existingItem.quantity += quantity;
-        } else {
-            cart.push({
-                id: productId,
-                name: productName,
-                price: discountedPrice,
-                quantity: quantity,
-                discount: discount,   // ✅ Store discount in cart data
-                tax: tax              // ✅ Store tax in cart data
-            });
-        }
-
-        // ✅ Update hidden inputs with the latest discount and tax
-        document.getElementById('discount').value = discount;
-        document.getElementById('tax').value = tax;
-    });
-
-    updateCart();
-}
-
-
-    function updateCart() {
-        cartBody.innerHTML = '';
-        let total = 0;
-
-        cart.forEach((item, index) => {
-            const subtotal = item.price * item.quantity;
-            total += subtotal;
-
-            const row = `
-                <tr>
-                    <td>${item.name}</td>
-                    <td>${item.quantity}</td>
-                    <td>${item.price.toFixed(2)}</td>  <!-- Corrected to GH₵ -->
-                    <td>${subtotal.toFixed(2)}</td>  <!-- Corrected to GH₵ -->
-                    <td>
-                        <button class="btn btn-warning btn-sm" onclick="editQuantity(${index})">Edit</button>
-                        <button class="btn btn-danger btn-sm" onclick="removeFromCart(${index})">Remove</button>
-                    </td>
-                </tr>
-            `;
-            cartBody.innerHTML += row;
-        });
-
-        totalAmount.textContent = `GH₵ ${total.toFixed(2)}`;  // Corrected to GH₵
-        document.getElementById('cart_data').value = JSON.stringify(cart);
-    }
-
-    function removeFromCart(index) {
-        // Open the modal and set up the delete action
-        const deleteConfirmationModal = new bootstrap.Modal(document.getElementById('deleteConfirmationModal'));
-        deleteConfirmationModal.show();
-
-        // When the user confirms the deletion
-        document.getElementById('confirmDeleteButton').onclick = function() {
-            // Remove the item from the cart array
-            cart.splice(index, 1);
-
-            // Update the cart UI
-            updateCart();
-
-            // Close the modal
-            deleteConfirmationModal.hide();
-        }
-    }
-
-    function editQuantity(index) {
-        // Open the modal and prefill the current quantity
-        const currentQuantity = cart[index].quantity;
-        document.getElementById('newQuantity').value = currentQuantity;
-        
-        // Show the modal
-        const editQuantityModal = new bootstrap.Modal(document.getElementById('editQuantityModal'));
-        editQuantityModal.show();
-
-        // When the user clicks "Save", update the cart
-        document.getElementById('saveQuantityButton').onclick = function() {
-            const newQuantity = parseInt(document.getElementById('newQuantity').value);
-            
-            // Validate the input
-            if (!isNaN(newQuantity) && newQuantity > 0) {
-                // Update the quantity in the cart
-                cart[index].quantity = newQuantity;
-                updateCart(); // This function should update the cart UI
-                editQuantityModal.hide(); // Close the modal
-            } else {
-                // Show error message if the input is invalid
-                document.getElementById('error-message').style.display = 'block';
-            }
-        }
-    }
-
-    function calculateChange() {
-        const finalTotal = parseFloat(totalAmount.textContent.replace('GH₵', ''));  // Corrected to GH₵
-        const amountPaid = parseFloat(document.getElementById('amount_paid').value);
-        const change = amountPaid - finalTotal;
-
-        if (!isNaN(change)) {
-            changeDiv.innerHTML = `Change: GH₵${change.toFixed(2)}`;  // Corrected to GH₵
-        } else {
-            changeDiv.innerHTML = 'Enter a valid amount paid.';
-        }
-    }
-
-    function saveCartToBackend() {
-        const cartData = {
-            cart: cart, // Your cart array from JavaScript
-            cart_id: "{{ request.session.cart_id|default:'' }}", // Use the session cart_id
-            invoice_id: "{{ invoice_id|default:'' }}" // Optional: Pass an existing invoice ID
-        };
-
-        fetch('/billing/save-cart/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': '{{ csrf_token }}' // Include CSRF token for Django
-            },
-            body: JSON.stringify(cartData)
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.success) {
-                alert('Cart saved successfully!');
-                console.log('Response:', data);
-            } else {
-                alert('Failed to save cart: ' + data.error);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-        });
-    }
-
-    function setCartId(cartId) {
-        // Send an AJAX request to Django to save cart_id in the session
-        console.log('Attempting to save cart_id:', cartId);
-        fetch("{% url 'billing:save_cart_id' %}", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken()
-            },
-            body: JSON.stringify({ cart_id: cartId })
-        })
-        .then(response => response.json())
-        .then(data => {
-            console.log("Cart ID saved:", data.cart_id);
-        })
-        .catch(error => {
-            console.error("Error saving cart_id:", error);
-        });
-    }
-
-    function generateInvoice() {
-        saveCartToBackend();
-        setTimeout(() => {
-            window.location.href = '/billing/generate-invoice/'; // Adjust this as per your routing
-        }, 1000);
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        $('#confirmInvoiceBtn').on('click', function () {
-            console.log('Generate Invoice button clicked'); // Log to confirm the button click is detected
-
-            const customerName = document.getElementById('customer_name').value;
-            const amountPaid = document.getElementById('amount_paid').value;
-            const paymentMethod = document.getElementById('payment_method').value; // Capture the selected payment method
-
-            const formData = new FormData();
-            formData.append('payment_method', paymentMethod);
-            formData.append('customer_name', customerName);
-            formData.append('amount_paid', amountPaid);
-            formData.append('cart_data', JSON.stringify(cart));
-
-            fetch(`/billing/generate_invoice/${invoiceId}/`, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': document.querySelector('[name=csrfmiddlewaretoken]').value
-                },
-                body: formData
-            })
-            .then(response => response.json())
-            .then(data => {
-                console.log('Invoice generated', data); // Log the response to check if the invoice is generated
-                if (data.invoice_id) {
-                    window.location.href = `/billing/invoice_receipt/${data.invoice_id}/`;
-                } else {
-                    alert('Failed to generate invoice');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('An error occurred while generating the invoice');
-            });
-
-            $('#invoiceConfirmModal').modal('hide');
-        });
-
-        $('#cancelInvoiceBtn').on('click', function () {
-            console.log('Cancel button clicked, closing the modal'); // Log to confirm cancel button click
-            $('#emptyCartModal').modal('hide');
-        });
-    });
-
-    function checkout() {
-        console.log('Checkout function triggered');
-
-        if (cart.length === 0) {
-            console.log('Cart is empty, showing empty cart modal');
-            $('#emptyCartModal').modal('show');
-            return;
-        }
-
-        console.log('Cart is not empty, showing invoice confirmation modal');
-        $('#invoiceConfirmModal').modal('show');
-    }
-
-    function getCSRFToken() {
-        let csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
-        return csrfToken;
-    }
-
-    document.addEventListener('DOMContentLoaded', function () {
-        function generateCartId() {
-            return Math.floor(1000000000 + Math.random() * 9000000000); // Random 10-digit number
-        }
-
-        function saveCartId(cartId) {
-            fetch('/billing/save_cart_id/', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken(),
-                },
-                body: JSON.stringify({ cart_id: cartId })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log('Cart ID saved successfully:', cartId);
-                } else {
-                    console.error('Failed to save cart ID.');
-                }
-            })
-            .catch(error => console.error('Error saving cart ID:', error));
-        }
-
-        let cartId = sessionStorage.getItem('cart_id');
-        if (!cartId) {
-            const newCartId = generateCartId();
-            sessionStorage.setItem('cart_id', newCartId);
-            saveCartId(newCartId);
-        } else {
-            console.log('Cart ID already exists:', cartId);
-        }
-
-        function getCookie(name) {
-            let cookieValue = null;
-            if (document.cookie && document.cookie !== '') {
-                const cookies = document.cookie.split(';');
-                for (let i = 0; i < cookies.length; i++) {
-                    const cookie = cookies[i].trim();
-                    if (cookie.startsWith(name + '=')) {
-                        cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                        break;
-                    }
-                }
-            }
-            return cookieValue;
-        }
-    });
-
-    function clearCart() {
-        sessionStorage.removeItem('cart_id');
-        fetch('/billing/clear_cart/', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken(),
-            },
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                console.log('Cart cleared:', data.cart_id);
-                sessionStorage.setItem('cart_id', data.cart_id);
-            }
-        })
-        .catch(error => console.error('Error clearing cart:', error));
-    }
-
-    document.addEventListener("DOMContentLoaded", function() {
-        const resetCartButton = document.getElementById('resetCartButton');
-        const confirmResetButton = document.getElementById('confirmResetButton');
-        const resetCartMessage = document.getElementById('resetCartMessage');
-        const resetCartModal = new bootstrap.Modal(document.getElementById('resetCartModal'));
-
-        const salesLink = document.getElementById('salesLink');
-        const reprintBillLink = document.getElementById('reprintBillLink'); 
-
-
-        resetCartButton.addEventListener('click', function() {
-            console.log("Reset Cart Button clicked");
-            if (cart.length === 0) {
-                resetCartMessage.innerText = "The cart is already empty.";
-                confirmResetButton.style.display = "none";
-            } else {
-                resetCartMessage.innerText = "Are you sure you want to reset the cart?";
-                confirmResetButton.style.display = "inline-block";
-            }
-
-            resetCartModal.show();
-        });
-
-        confirmResetButton.addEventListener('click', function() {
-            fetch("/billing/clear_cart/", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken(),
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log("Cart cleared successfully.");
-                    cart = [];
-                    updateCart();
-                    resetCartModal.hide();
-                } else {
-                    console.error("Failed to clear the cart.");
-                }
-            })
-            .catch(error => console.error("Error:", error));
-        });
-
-        salesLink.addEventListener('click', function(event) {
-            event.preventDefault();
-
-            fetch("/billing/clear_cart/", {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': getCSRFToken(),
-                }
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    console.log("Cart cleared successfully.");
-                    cart = [];
-                    updateCart();
-                    window.location.href = salesLink.href;
-                } else {
-                    console.error("Failed to clear the cart.");
-                }
-            })
-            .catch(error => console.error("Error:", error));
-        });
-    });
-
-
-</script>
-
-
-
-<!--
-Javascrip to display Warnng message for Low product
+<!--======================================================================
 -->
-<script>
-    document.addEventListener("DOMContentLoaded", function () {
-        let productDropdown = document.getElementById('product_ids');
-        let today = new Date();
-        today.setHours(0, 0, 0, 0); // Normalize time for date comparison
-
-        // Loop through all dropdown options to process stock and expiry notifications
-        for (let i = 0; i < productDropdown.options.length; i++) {
-            let option = productDropdown.options[i];
-            let stockLevel = parseInt(option.getAttribute('data-stock'));
-            let expiryDateStr = option.getAttribute('data-expiry');
-
-            // Handle out-of-stock products (disable + style)
-            if (stockLevel === 0) {
-                option.disabled = true;
-                option.classList.add('out-of-stock'); // Add class for styling
-            }
-
-            // Handle expiry date notifications
-            if (expiryDateStr) {
-                let expiryDate = new Date(expiryDateStr);
-                let daysUntilExpiry = (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-
-                if (daysUntilExpiry <= 30) {
-                    option.classList.add('near-expiry'); // Style near-expiry products
-                }
-                if (daysUntilExpiry < 0) {
-                    option.classList.add('expired'); // Style expired products
-                }
-            }
-        }
-
-        // Handle product selection events
-        productDropdown.addEventListener('change', function (e) {
-            let selectedOption = e.target.selectedOptions[0];
-            let stockLevel = parseInt(selectedOption.getAttribute('data-stock'));
-            let expiryDateStr = selectedOption.getAttribute('data-expiry');
-
-            // Out-of-stock alert
-            if (stockLevel === 0) {
-                alert("⚠️ This product is out of stock!");
-                productDropdown.value = ""; // Reset selection
-                return;
-            }
-
-            // Low stock warning (if stock is below 10)
-            if (stockLevel > 0 && stockLevel <= 10) {
-                let message = `⚠️ Warning: The selected product '${selectedOption.text}' is running low on stock (Only ${stockLevel} left).`;
-                document.getElementById('lowStockMessage').textContent = message;
-                new bootstrap.Modal(document.getElementById('lowStockModal')).show();
-            }
-
-            // Expiry date notifications
-            if (expiryDateStr) {
-                let expiryDate = new Date(expiryDateStr);
-                let daysUntilExpiry = (expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24);
-
-                if (daysUntilExpiry <= 30) {
-                    let message = `⚠️ Warning: '${selectedOption.text}' is expiring soon (Expiry Date: ${expiryDateStr}).`;
-                    if (daysUntilExpiry < 0) {
-                        message = `❌ Alert: '${selectedOption.text}' has already expired (Expiry Date: ${expiryDateStr}).`;
-                    }
-                    document.getElementById('expiryMessage').textContent = message;
-                    new bootstrap.Modal(document.getElementById('expiryModal')).show();
-                }
-            }
-        });
-    });
-</script>
-
-<!--==================================================
-Back button to clear cart
--->
-<script>
-window.addEventListener('pageshow', function(event) {
-    if (event.persisted || (window.performance && window.performance.getEntriesByType("navigation")[0].type === "back_forward")) {
-        // Clear the cart session when navigating back
-        fetch("/billing/clear_cart/", {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'X-CSRFToken': getCSRFToken(),
-            }
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                console.log("Cart cleared after back navigation.");
-                cart = [];
-                updateCart();
-            } else {
-                console.error("Failed to clear the cart after back navigation.");
-            }
-        })
-        .catch(error => console.error("Error:", error));
-    }
-});
-
-
-document.addEventListener("DOMContentLoaded", function () {
-    let productDropdown = document.getElementById('product_ids');
-
-    // Re-focus the dropdown after modal closes
-    let modals = ['lowStockModal', 'expiryModal'];
-
-    modals.forEach(modalId => {
-        let modal = document.getElementById(modalId);
-        modal.addEventListener('hidden.bs.modal', function () {
-            productDropdown.focus(); // Set focus back to the dropdown
-        });
-    });
-});
 
 
 
-document.addEventListener('DOMContentLoaded', function () {
-    document.querySelectorAll('[data-bs-dismiss="modal"]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            setTimeout(() => {
-                document.body.classList.remove('modal-open'); // Fixes scrolling issue
-                let backdrop = document.querySelector('.modal-backdrop');
-                if (backdrop) backdrop.remove(); // Remove backdrop if it remains
-            }, 300);
-        });
-    });
-});
+<input type="hidden" id="search-url" value="{% url 'billing:search_billing_product' %}">
 
+  
+<input type="hidden" id="invoice_id" value="{{ transaction_cart.id }}">
 
-    // Also fix scrolling when modal is fully hidden
-    document.querySelectorAll('.modal').forEach(function (modal) {
-        modal.addEventListener('hidden.bs.modal', function () {
-            document.body.style.overflow = "auto"; // Ensure scrolling is back
-        });
-    });
-
-
-</script>
 
 
 
 <!-- Load local jQuery -->
 <script src="{% static 'js/jquery-3.6.0.min.js' %}"></script>
 
-<!-- Load local Bootstrap -->
-<script src="{% static 'js/bootstrap.bundle.min.js' %}"></script>
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 
-<!-- Your custom script -->
-<script src="{% static 'js/script.js' %}"></script>
+<script src="{% static 'js/sales_cart.js' %}"></script>
+
+
 
 
 

@@ -165,6 +165,10 @@ class StockTransfer(models.Model):
             if not self.requisition or self.requisition.status.lower() != "approved":
                 raise ValidationError("Requisition must be approved before stock can be transferred")
 
+            # 🔴 NEW CHECK: Ensure all requisition items are approved
+            if not all(item.status == "Approved" for item in self.requisition.items.all()):
+                raise ValidationError("Stock transfer cannot proceed because some requisition items are not approved")
+
             if not self.warehouse_stock:
                 raise ValidationError("No warehouse stock selected for transfer")
 
@@ -188,7 +192,7 @@ class StockTransfer(models.Model):
                     "supplier": product.supplier,
                 }
             )
-            
+
             if not created:
                 product_entry.quantity += self.quantity
                 product_entry.save()
@@ -201,6 +205,7 @@ class StockTransfer(models.Model):
             store_product.save()
 
         super().save(*args, **kwargs)
+
 
     def reverse_transfer(self, quantity, user):
         with transaction.atomic():

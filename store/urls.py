@@ -26,7 +26,8 @@ urlpatterns = [
     path('categories/', views.category_list, name='category_list'),
     path('categories/add/', views.add_category, name='add_category'),
     path('categories/edit/<int:category_id>/', views.edit_category, name='edit_category'),
-    path('categories/delete/', views.delete_category, name='delete_category'),
+    path('categories/delete/<int:category_id>/', views.delete_category, name='delete_category'),  # <-- updated here
+
 
     # Supplier management URLs
     path('suppliers/add/', views.add_supplier, name='add_supplier'),
@@ -43,4 +44,9 @@ urlpatterns = [
 
 
     path('manage-tax-discount/', views.manage_tax_discount, name='manage_tax_discount'),
+
+    path('scan/', views.scan_barcode, name='scan_barcode'),
+    path('scan-barcode/', views.handle_barcode, name='handle_barcode'),
+
+    path('search-products/', views.search_products, name='search-products'),
 ]

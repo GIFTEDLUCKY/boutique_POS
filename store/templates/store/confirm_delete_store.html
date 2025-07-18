@@ -1,0 +1,13 @@
+{% extends 'base.html' %}
+
+{% block content %}
+<div class="container mt-4">
+    <h3>Confirm Delete Store</h3>
+    <p>Are you sure you want to delete store: <strong>{{ store.name }}</strong>?</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Yes, Delete</button>
+        <a href="{% url 'store:add_store' %}" class="btn btn-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

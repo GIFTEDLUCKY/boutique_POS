@@ -1,0 +1,19 @@
+runtime: python312  # Specify the Python version
+
+entrypoint: gunicorn -b :$PORT multi_store_pos.wsgi  # Make sure your wsgi file is correct
+
+env_variables:
+  DJANGO_SETTINGS_MODULE: "multi_store_pos.settings"
+  SECRET_KEY: "Lu@582580"
+  DB_HOST: "/cloudsql/multi-store-pos:us-central1:multi-store-db"  # Set Cloud SQL instance connection name
+  DB_PORT: "3306"  # Default MySQL port
+  DB_NAME: "multi_store_db"  # Your database name
+  DB_USER: "django_user"  # Your database user
+  DB_PASSWORD: "Lu@582580"  # Your database password
+
+handlers:
+  - url: /static
+    static_dir: staticfiles/  # Serves static files
+  
+  - url: /.*  # All other URLs will be handled by the application
+    script: auto

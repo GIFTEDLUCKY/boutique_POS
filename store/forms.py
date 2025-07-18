@@ -4,20 +4,32 @@ from .models import Product, Staff, Category, Supplier, Store
 class ProductForm(forms.ModelForm):
     class Meta:
         model = Product
-        fields = ['name', 'category', 'supplier', 'store', 'quantity', 'cost_price', 
-                  'selling_price', 'discount', 'product_tax', 'status', 'expiry_date']
+        fields = [
+            'name', 'category', 'supplier', 'store', 'quantity', 'cost_price', 
+            'selling_price', 'discount', 'product_tax', 'status', 'expiry_date', 'barcode'
+        ]
+    # Add the barcode field
+    barcode = forms.CharField(
+    max_length=255,
+    required=False,
+    widget=forms.TextInput(attrs={
+        'placeholder': 'Enter barcode or scan',
+        'onkeydown': 'handleBarcodeKey(event)',
+        'autofocus': True,
+    })
+)
 
+    
+    # Keep the other fields as they are
     category = forms.ModelChoiceField(queryset=Category.objects.all(), empty_label="Select Category")
     supplier = forms.ModelChoiceField(queryset=Supplier.objects.all(), empty_label="Select Supplier")
     store = forms.ModelChoiceField(queryset=Store.objects.all(), empty_label="Select Store")
-
     STATUS_CHOICES = [
         (True, 'Active'),
         (False, 'Inactive'),
     ]
-    
     status = forms.ChoiceField(choices=STATUS_CHOICES, widget=forms.Select)
-
+    
     product_tax = forms.DecimalField(
         max_digits=5,
         decimal_places=2,
@@ -27,12 +39,21 @@ class ProductForm(forms.ModelForm):
         label="Product Tax (%)",
         widget=forms.NumberInput(attrs={'placeholder': 'Enter tax %'})
     )
-
+    
     expiry_date = forms.DateField(
         required=False,
         widget=forms.DateInput(attrs={'type': 'date', 'placeholder': 'Select expiry date'}),
         label="Expiry Date"
     )
+
+    # ✅ Clean method to convert empty barcode to None (NULL in DB)
+    def clean_barcode(self):
+        data = self.cleaned_data.get('barcode')
+        if data == '':
+            return None  # Store NULL instead of empty string
+        return data
+
+
 
 
 
@@ -49,11 +70,6 @@ ROLE_CHOICES = [
     ('cashier', 'Cashier'),
 # forms.py
 ]
-
-from django.contrib.auth import get_user_model
-from django import forms
-from accounts.models import UserProfile
-from .models import Staff
 
 class StaffForm(forms.ModelForm):
     class Meta:

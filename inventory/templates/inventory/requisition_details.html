@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Requisition Details</title>
+    <style>
+        body { font-family: Arial, sans-serif; }
+        .container { width: 80%; margin: auto; text-align: left; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; }
+        th { background-color: #f2f2f2; }
+        .btn-container { margin-top: 20px; display: flex; justify-content: center; gap: 10px; }
+        .btn { padding: 10px 15px; background-color: #007bff; color: white; border: none; cursor: pointer; text-decoration: none; }
+        .btn:hover { background-color: #0056b3; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h2>Requisition Details</h2>
+        <p><strong>Requisition No:</strong> {{ requisition.requisition_number }}</p>
+        <p><strong>Store:</strong> {{ requisition.store.name }}</p>
+        <p><strong>Status:</strong> {{ requisition.status }}</p>
+        <p><strong>Requested By:</strong> {{ requisition.added_by }}</p>
+        <p><strong>Reason:</strong> {{ requisition.reason }}</p>
+        <p><strong>Date:</strong> {{ requisition.created_at|date:"d-m-Y" }}</p>
+
+        <h3>Requested Items</h3>
+        <table>
+            <thead>
+                <tr>
+                    <th>Product</th>
+                    <th>Quantity Requested</th>
+                    <th>Approved Quantity</th>
+                    <!--<th>Reversed Quantity</th>-->
+                    <th>Status</th>
+                    <th>Transfer Date</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for item in requisition_items %}
+                <tr>
+                    <td>{{ item.product.product.name }}</td>
+                    <td>{{ item.quantity_requested }}</td>
+                    <td>{{ item.approved_quantity }}</td>
+                    <!-- <td>{{ item.reversed_quantity|default:"-" }}</td>-->
+                    <td>{{ item.status }}</td>
+                    <td>{{ requisition.created_at|date:"d-m-Y" }}</td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6">No items in this requisition.</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        
+
+        <div class="btn-container">
+            <button class="btn" onclick="window.print()">Print</button>
+            <a href="{% url 'inventory:requested_items_form' %}" class="btn">Return to Form</a>
+        </div>
+    </div>
+</body>
+</html>

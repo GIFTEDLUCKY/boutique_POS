@@ -131,9 +131,13 @@ def register_user(request):
 
     return render(request, 'accounts/register.html')
 
-# views.py
-from django.shortcuts import render
+
 
 def auth_view(request):
     # Custom view logic
     return render(request, 'password_reset_form.html')
+
+
+
+def goodbye_view(request):
+    return render(request, 'accounts/goodbye.html')

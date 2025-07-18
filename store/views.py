@@ -46,6 +46,8 @@ def product_list(request, store_id=None):
     return render(request, 'store/product_list.html', {'store': store, 'products': products})
 
 
+
+
 # View for adding a new product
 from django.shortcuts import render, redirect
 from store.models import Product
@@ -174,6 +176,55 @@ def add_product(request):
      })
 
 
+from django.http import JsonResponse
+from .models import Product
+
+def scan_barcode(request):
+    if request.method == "POST":
+        barcode_data = request.POST.get('barcode', '')
+        try:
+            # Search for the product by barcode
+            product = Product.objects.get(barcode=barcode_data)
+            response_data = {
+                'product_name': product.name,
+                'price': product.price,
+                'quantity': product.quantity,
+            }
+            return JsonResponse(response_data)
+        except Product.DoesNotExist:
+            return JsonResponse({'error': 'Product not found'}, status=404)
+    return JsonResponse({'error': 'Invalid request'}, status=400)
+
+from django.http import JsonResponse
+from .models import Product
+
+
+
+
+def handle_barcode(request):
+    barcode = request.GET.get('barcode')
+    if not barcode:
+        return JsonResponse({'error': 'No barcode provided'}, status=400)
+
+    try:
+        # Check if the product with this barcode exists
+        product = Product.objects.get(barcode=barcode)
+        
+        # If product exists, update its stock or perform any other necessary action
+        product.stock += 1  # Example: Increase stock
+        product.save()
+        return JsonResponse({'message': f'Product {product.name} updated successfully.', 'product_id': product.id})
+
+    except Product.DoesNotExist:
+        # If product doesn't exist, create a new product
+        product = Product.objects.create(
+            barcode=barcode,
+            name="New Product",  # Set default values or request user input for these
+            price=0.00,  # Default price or fetch from elsewhere
+            stock=1  # Default stock value
+        )
+        return JsonResponse({'message': 'New product added to the database.', 'product_id': product.id})
+
 
 # Edit Product View
 def edit_product(request, pk):
@@ -197,6 +248,8 @@ def edit_product(request, pk):
         'product': product,
         'products': products  # Ensure that the updated list of products is passed to the template
     })
+
+
 # Delete Product View
 def delete_product(request, pk):
     product = get_object_or_404(Product, pk=pk)
@@ -374,7 +427,9 @@ def edit_supplier(request, pk):
     return render(request, 'store/edit_supplier.html', context)
 
 
-# Delete Supplier View
+
+from django.db.models import ProtectedError
+
 @login_required
 def delete_supplier(request, pk):
     supplier = get_object_or_404(Supplier, pk=pk)
@@ -382,9 +437,18 @@ def delete_supplier(request, pk):
     if request.method == 'POST':
         try:
             supplier.delete()
-            messages.success(request, "Supplier deleted successfully!")  # ✅ Success message
+            messages.success(request, "Supplier deleted successfully!")
+        except ProtectedError as e:
+            # protected_objects is a set, so iterate directly
+            protected_products = e.protected_objects
+            product_names = ", ".join([str(p) for p in protected_products])
+            user_message = (
+                f"Cannot delete this supplier because it is associated with these products: {product_names}. "
+                "Please reassign or delete those products first."
+            )
+            messages.error(request, user_message)
         except Exception as e:
-            messages.error(request, f"Error deleting supplier: {e}")  # ❌ Error message
+            messages.error(request, f"Error deleting supplier: {e}")
         
         return redirect('store:add_supplier')
 
@@ -392,6 +456,7 @@ def delete_supplier(request, pk):
         'supplier': supplier,
     }
     return render(request, 'store/confirm_delete.html', context)
+
 
 
 @login_required
@@ -437,32 +502,38 @@ def edit_category(request, category_id):
         'categories': Category.objects.all(),
     })
 
-from django.http import JsonResponse
-from django.shortcuts import get_object_or_404
-from .models import Category  
-from django.views.decorators.csrf import csrf_exempt
 
-@csrf_exempt  # Only needed if handling AJAX requests without CSRF token (not recommended in production)
-def delete_category(request):
+#===================================================================
+from django.contrib import messages
+from django.shortcuts import render, get_object_or_404, redirect
+from django.db.models import ProtectedError
+from .models import Category
+
+def delete_category(request, category_id):  # or use pk if your URL uses that param name
+    category = get_object_or_404(Category, pk=category_id)
+
     if request.method == "POST":
-        category_id = request.POST.get("category_id", "").strip()
-        
-        if not category_id:
-            return JsonResponse({"error": "Category ID is required"}, status=400)
-
-        category = get_object_or_404(Category, id=category_id)
-        
         try:
             category.delete()
-            return JsonResponse({"success": True, "message": "Category deleted successfully!"})
+            messages.success(request, "Category deleted successfully!")
+            return redirect('store:add_category')  # Redirect to your category list page/view
+        except ProtectedError as e:
+            protected_objects = e.protected_objects
+            product_names = ", ".join(str(p) for p in protected_objects)
+            user_message = (
+                f"Cannot delete this category because it is associated with these products: {product_names}. "
+                "Please reassign or delete those products first."
+            )
+            messages.error(request, user_message)
+            return redirect('store:add_category')
         except Exception as e:
-            return JsonResponse({"error": f"Error deleting category: {str(e)}"}, status=500)
+            messages.error(request, f"Error deleting category: {str(e)}")
+            return redirect('store:add_category')
 
-    return JsonResponse({"error": "Invalid request"}, status=400)
+    return render(request, 'store/confirm_delete_category.html', {'category': category})
 
 
-
-
+#================================================================
 def edit_store(request, pk=None):
     store = get_object_or_404(Store, pk=pk) if pk else None
     form = StoreForm(request.POST or None, instance=store)
@@ -482,18 +553,41 @@ def edit_store(request, pk=None):
     return render(request, 'store/add_store.html', {'form': form, 'stores': stores, 'store': store})
 
 
+#====================================================================
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
+from django.db.models import ProtectedError
+from .models import Store
+from django.contrib.auth.decorators import login_required
 
+@login_required
 def delete_store(request, pk):
     store = get_object_or_404(Store, pk=pk)
     
-    if request.method == "POST":  # Ensures deletion is intentional
-        store.delete()
-        messages.success(request, "Store deleted successfully!")
-        return redirect('store:add_store')
+    if request.method == 'POST':
+        try:
+            store.delete()
+            messages.success(request, "Store deleted successfully!")
+            return redirect('store:add_store')  # Redirect to your store list page
+        except ProtectedError as e:
+            protected_products = e.protected_objects
+            product_names = ", ".join(str(p) for p in protected_products)
+            error_msg = (
+                f"Cannot delete this store because it is associated with these products: {product_names}. "
+                "Please reassign or delete those products first."
+            )
+            messages.error(request, error_msg)
+            return redirect('store:add_store')  # Redirect back to store list with error message
+        except Exception as e:
+            messages.error(request, f"Error deleting store: {e}")
+            return redirect('store:add_store')
 
-    messages.error(request, "Invalid request. Store could not be deleted.")
-    return redirect('store:add_store')
+    context = {
+        'store': store,
+    }
+    return render(request, 'store/confirm_delete_store.html', context)
 
+#===================================================================
 from django.shortcuts import render
 from django.db.models import Q
 from .models import Product  # Adjust as needed
@@ -640,3 +734,23 @@ def manage_tax_discount(request):
             return redirect('store:manage_tax_discount')  # Reload page after success
 
     return render(request, 'store/manage_tax_discount.html', {'form': form})
+
+
+from django.http import JsonResponse
+from .models import Product
+from django.contrib.auth.decorators import login_required
+
+@login_required
+def search_products(request):
+    query = request.GET.get('q', '')
+    results = []
+    if len(query) >= 2:
+        products = Product.objects.filter(name__icontains=query, store=request.user.store)[:10]
+        for product in products:
+            results.append({
+                'id': product.id,
+                'name': product.name,
+                'price': float(product.discounted_price),
+                'stock': product.quantity,
+            })
+    return JsonResponse({'results': results})

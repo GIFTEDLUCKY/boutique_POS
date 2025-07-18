@@ -6,7 +6,7 @@
 <div class="container mt-4">
     <div class="row">
         <!-- Store Form -->
-        <div class="col-md-4" style="padding-right: 15px;"> <!-- 30% width -->
+        <div class="col-12 col-md-4 mb-3">  <!-- Full width on small screens, 4 columns on medium+ -->
             <h3>{% if store %}Edit Store{% else %}Add Store{% endif %}</h3>
             <form method="POST" class="needs-validation" novalidate>
                 {% csrf_token %}
@@ -22,12 +22,12 @@
                 </div>
                 <div class="mb-3">
                     <label for="manager" class="form-label">Manager</label>
-                    {{ form.manager }}  <!-- Fixed the field reference -->
+                    {{ form.manager }}
                     <div class="invalid-feedback">Manager is required.</div>
                 </div>
                 <div class="mb-3">
                     <label for="manager_contact" class="form-label">Manager Contact</label>
-                    {{ form.manager_contact }}  <!-- Added manager_contact field -->
+                    {{ form.manager_contact }}
                     <div class="invalid-feedback">Manager Contact is required.</div>
                 </div>
                 <button type="submit" class="btn btn-success">
@@ -40,66 +40,43 @@
         </div>
 
         <!-- Store List -->
-        <div class="col-md-8"> <!-- 70% width -->
+        <div class="col-12 col-md-8">  <!-- Full width on small screens, 8 columns on medium+ -->
             <h3>Store List</h3>
-            <table class="table table-bordered table-sm">
-                <thead>
-                    <tr>
-                        <th>Name</th>
-                        <th>Location</th>
-                        <th>Manager</th>  <!-- Updated -->
-                        <th>Manager Contact</th>  <!-- Added this column -->
-                        <th>Created At</th>
-                        <th>Actions</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for store in stores %}
-                    <tr>
-                        <td>{{ store.name }}</td>
-                        <td>{{ store.location }}</td>
-                        <td>{% if store.manager %}{{ store.manager.get_full_name }}{% else %}No Manager{% endif %}</td>
-                      <!-- Updated to display manager -->
-                        <td>{{ store.manager_contact|default:"N/A" }}</td>  <!-- Added manager contact -->
-                        <td>{{ store.created_at|date:"d-m-Y H:i" }}</td>
-                        <td>
-                            <a href="{% url 'store:edit_store' store.id %}" class="btn btn-warning btn-sm">Edit</a>
-                            <a href="{% url 'store:delete_store' store.id %}" class="btn btn-danger btn-sm"
-                               onclick="return confirm('Are you sure you want to delete this store?')">Delete</a>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="6" class="text-center">No stores available.</td>  <!-- Adjusted colspan -->
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+            <div class="table-responsive">  <!-- Ensures the table scrolls on very small screens -->
+                <table class="table table-bordered table-sm">
+                    <thead>
+                        <tr>
+                            <th>Name</th>
+                            <th>Location</th>
+                            <th>Manager</th>
+                            <th>Manager Contact</th>
+                            <th>Created At</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for store in stores %}
+                        <tr>
+                            <td>{{ store.name }}</td>
+                            <td>{{ store.location }}</td>
+                            <td>{% if store.manager %}{{ store.manager.get_full_name }}{% else %}No Manager{% endif %}</td>
+                            <td>{{ store.manager_contact|default:"N/A" }}</td>
+                            <td>{{ store.created_at|date:"d-m-Y H:i" }}</td>
+                            <td>
+                                <a href="{% url 'store:edit_store' store.id %}" class="btn btn-warning btn-sm">Edit</a>
+                                <a href="{% url 'store:delete_store' store.id %}" class="btn btn-danger btn-sm">Delete</a>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" class="text-center">No stores available.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
-
-<style>
-    .col-md-4 {
-        width: 30%;
-        padding-right: 15px;
-    }
-    .col-md-8 {
-        width: 70%;
-    }
-    .form-container input,
-    .form-container textarea {
-        font-size: 0.8em;
-        margin-bottom: 10px;
-    }
-    .form-container label {
-        font-size: 0.9em;
-        margin-bottom: 5px;
-    }
-    .table-container th,
-    .table-container td {
-        font-size: 0.8em;
-    }
-</style>
 
 {% endblock %}

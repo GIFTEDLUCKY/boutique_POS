@@ -2,7 +2,7 @@
 
 {% load static %}
 
-{% block title %}Refund Invoice{% endblock %}
+{% block title %}Re-Print Invoice{% endblock %}
 
 {% block content %}
 <!DOCTYPE html>
@@ -24,15 +24,16 @@
             font-size: 12px; /* Smaller font size suitable for receipts */
         }
 
-        h2, h3 {
-            font-size: 14px;
+        h2, h3, hr {
+            font-size: 13px;
             text-align: center;
-            margin: 5px 0;
+            margin: 1px 0;
         }
 
         p {
-            margin: 5px 0;
-            font-size: 12px;
+            margin: 2px 0; /* was 5px 0 */
+            font-size: 11px; /* slightly smaller */
+            line-height: 1.2; /* tighter line height */
         }
 
         table {
@@ -40,12 +41,16 @@
             border-collapse: collapse;
             margin: 10px 0;
             border: 0.2px solid black;
+            line-height: 1;
         }
 
         table, th, td {
+            
             font-size: 10px;
-            text-align: center;
+            text-align: left;
             border: 0.3px solid black;
+            text-align: center;
+            padding: 2px; 
         }
 
         th, td {
@@ -72,6 +77,11 @@
             .btn-secondary, #print-button, #cancel-button {
                 display: none; /* Hide buttons on print */
             }
+
+            .navbar {
+                display: none !important;
+            }
+        
         }
     </style>
 </head>
@@ -89,13 +99,12 @@
         <hr>
 
         <h3>Invoice Details </h3>
-        <p><strong>Invoice ID:</strong> {% if cart_items %}{{ cart_items.first.cart_id }}{% endif %}</p>
-        <p><strong>Cashier:</strong> {{ user.username }}</p>
-        <p><strong>Location:</strong> {% if cart_items %}{{ cart_items.first.store.name }}{% endif %}</p>
-        
-        <p><strong>Customer Name:</strong> {% if cart_items %}{{ cart_items.first.customer_name }}{% endif %}</p>
-        <p><strong>Payment Method:</strong> {% if cart_items %}{{ cart_items.first.payment_method }}{% endif %}</p>
-        <p><strong>Date:</strong> {% if cart_items %}{{ cart_items.first.created_at|date:"d-m-y H:i" }}{% endif %}</p>
+        <p><strong>Invoice ID:</strong> {% if cart_items %}{{ cart_items.first.cart_id }}{% endif %}    &nbsp; &nbsp;&nbsp;&nbsp;<strong>Cashier:</strong> {{ user.username }}</p>
+
+
+        <p><strong>Location:</strong> {% if cart_items %}{{ cart_items.first.store.name }}{% endif %}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Customer:</strong> {% if cart_items %}{{ cart_items.first.customer_name }}{% endif %}</p>
+
+        <p><strong>Paid via:</strong> {% if cart_items %}{{ cart_items.first.payment_method }}{% endif %}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<strong>Date:</strong> {% if cart_items %}{{ cart_items.first.created_at|date:"d-m-y H:i" }}{% endif %}</p>
 
     
         <table>
@@ -134,21 +143,29 @@
         <hr>
 
         <table>
-            <tr>
+            <!--<tr>
                 <td>Subtotal:</td>
-                <td>GH₵{{ subtotal }}</td>
+                <td>₦{{ subtotal }}</td>
             </tr>
-            <tr>
+                <tr>
                 <td>Discount:</td>
-                <td>GH₵{{ discount }}</td>
+                <td>₦ {{ discount }}</td>
             </tr>
             <tr>
                 <td>Tax:</td>
-                <td>GH₵{{ tax }}</td>
-            </tr>
+                <td>₦ {{ tax }}</td>
+            </tr>-->
             <tr class="total">
                 <td>Total:</td>
-                <td>GH₵{{ total }}</td>
+                <td>₦{{ total }}</td>
+            </tr>
+            <tr>
+                <td>Amount Paid:</td>
+                <td>₦ {{ amount_paid }}</td>
+            </tr>
+            <tr>
+                <td>Change/Balance:</td>
+                <td>₦ {{ change }}</td>
             </tr>
         </table>
 

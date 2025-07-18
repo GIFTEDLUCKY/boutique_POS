@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Refund Search</title>
+    <script>
+        // JavaScript function to send the request and display the results
+        function searchBill() {
+            var billNumber = document.getElementById("billNumber").value;
+            var url = "/billing/refund/search/?bill_number=" + billNumber;
+
+            fetch(url)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.cart_items) {
+                        // Populate the table with the returned cart_items
+                        var tableBody = document.getElementById("cartTableBody");
+                        tableBody.innerHTML = ""; // Clear existing table rows
+
+                        data.cart_items.forEach(item => {
+                            var row = document.createElement("tr");
+
+                            var productCell = document.createElement("td");
+                            productCell.innerText = item.name;
+                            row.appendChild(productCell);
+
+                            var quantityCell = document.createElement("td");
+                            quantityCell.innerText = item.quantity;
+                            row.appendChild(quantityCell);
+
+                            var priceCell = document.createElement("td");
+                            priceCell.innerText = item.price;
+                            row.appendChild(priceCell);
+
+                            var subtotalCell = document.createElement("td");
+                            subtotalCell.innerText = item.subtotal;
+                            row.appendChild(subtotalCell);
+
+                            tableBody.appendChild(row);
+                        });
+                    } else {
+                        alert(data.error);  // Show an error message if no cart items are found
+                    }
+                })
+                .catch(error => {
+                    console.error('Error:', error);
+                    alert('An error occurred while fetching data.');
+                });
+        }
+    </script>
+</head>
+<body>
+
+    <h1>Refund Search</h1>
+
+    <!-- Search form to input bill number -->
+    <input type="text" id="billNumber" placeholder="Enter Bill Number">
+    <button onclick="searchBill()">Search</button>
+
+    <!-- Table to display the cart items -->
+    <table>
+        <thead>
+            <tr>
+                <th>Product</th>
+                <th>Quantity</th>
+                <th>Price</th>
+                <th>Subtotal</th>
+            </tr>
+        </thead>
+        <tbody id="cartTableBody">
+            <!-- Cart items will be populated here by JavaScript -->
+        </tbody>
+    </table>
+
+</body>
+</html>

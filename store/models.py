@@ -23,20 +23,21 @@ class Store(models.Model):
 
 
 
-from django.db import models
 
 class Product(models.Model):
     name = models.CharField(max_length=255)
-    category = models.ForeignKey('Category', on_delete=models.CASCADE, default=1)
-    supplier = models.ForeignKey('Supplier', on_delete=models.CASCADE, default=1)
-    store = models.ForeignKey('Store', on_delete=models.CASCADE, default=1)
+    category = models.ForeignKey('Category', on_delete=models.PROTECT, default=1)
+    supplier = models.ForeignKey('Supplier', on_delete=models.PROTECT, default=1)
+    store = models.ForeignKey('Store', on_delete=models.PROTECT, default=1)
     quantity = models.PositiveIntegerField()  # Tracks current stock
     cost_price = models.DecimalField(max_digits=10, decimal_places=2)
     selling_price = models.DecimalField(max_digits=10, decimal_places=2)
-    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)  # Product Discount (%) 
-    product_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)  # Product Tax (%) 
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)  # Product Discount (%)
+    product_tax = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)  # Product Tax (%)
     status = models.BooleanField(default=True)  # Active = True, Inactive = False
     expiry_date = models.DateField(null=True, blank=True)  # Optional expiry date field
+    barcode = models.CharField(max_length=255, unique=True, null=True, blank=True)  # Add barcode field
+
 
     @property
     def assumed_profit(self):
@@ -46,12 +47,12 @@ class Product(models.Model):
 
     @property
     def discounted_price(self):
-        """Calculates discounted price per unit."""
+        """Calculates discounted price per unit.""" 
         return self.selling_price - (self.selling_price * self.discount / 100)
 
     @property
     def taxed_price(self):
-        """Calculates price after applying product tax on the discounted price."""
+        """Calculates price after applying product tax on the discounted price.""" 
         return self.discounted_price + (self.discounted_price * self.product_tax / 100)
 
     @property
@@ -75,8 +76,20 @@ class Product(models.Model):
     def __str__(self):
         return self.name
 
+    def save(self, *args, **kwargs):
+        if self.quantity == 0:
+            self.status = False
+        else:
+            self.status = True
+        super().save(*args, **kwargs)
+
     class Meta:
-        ordering = ['name']  # Order products alphabetically by name
+        ordering = ['name']
+        constraints = [
+            models.UniqueConstraint(fields=['store', 'barcode'], name='unique_barcode_per_store')
+        ]
+
+
 
 
 

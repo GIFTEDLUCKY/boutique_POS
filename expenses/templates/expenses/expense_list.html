@@ -1,6 +1,80 @@
 {% extends 'base.html' %}
 
 {% block content %}
+
+<style>
+  h1 {
+    font-size: 24px; /* Adjust as needed */
+  }
+
+  .table th, .table td {
+    font-size: 14px; /* Adjust table text size */
+  }
+
+  .btn {
+    font-size: 14px; /* Adjust button text size */
+  }
+
+  .form-control {
+    font-size: 14px; /* Adjust input field text size */
+  }
+
+  .alert {
+    font-size: 16px; /* Adjust alert text size */
+  }
+
+
+
+   /* Medium screens (Tablets, 768px and below) */
+  @media (max-width: 768px) {
+    h1 {
+      font-size: 20px;
+    }
+
+    .table th, .table td {
+      font-size: 12px;
+    }
+
+    .btn {
+      font-size: 12px;
+    }
+
+    .form-control {
+      font-size: 12px;
+    }
+
+    .alert {
+      font-size: 14px;
+    }
+  }
+
+  /* Small screens (Mobile, 480px and below) */
+  @media (max-width: 480px) {
+    h1 {
+      font-size: 18px;
+    }
+
+    .table th, .table td {
+      font-size: 11px;
+    }
+
+    .btn {
+      font-size: 11px;
+    }
+
+    .form-control {
+      font-size: 11px;
+    }
+
+    .alert {
+      font-size: 13px;
+    }
+  }
+</style>
+
+
+
+
   <h1>Expenditure List</h1>
 
   <!-- Filter & Total Expenses Row -->
@@ -25,7 +99,7 @@
     <!-- Total Expenses -->
     <div class="col-md-4 text-md-end mt-3 mt-md-0">
       <div class="alert alert-info">
-        <strong>Total Expenses:</strong> GH₵ <span id="totalExpenses">{{ total_expenses|floatformat:2 }}</span>
+        <strong>Total Expenses:</strong> ₦ <span id="totalExpenses">{{ total_expenses|floatformat:2 }}</span>
       </div>
     </div>
   </div>

@@ -1,0 +1,107 @@
+{% extends 'base.html' %}
+
+{% block content %}
+
+
+<div class="container mt-4" style="max-width: 70%;">
+    <h2 class="mb-3">Customer List</h2>
+
+    <div class="d-flex align-items-center flex-wrap gap-2 mb-3">
+        <div class="position-relative flex-grow-1" style="min-width: 250px;">
+            <input type="text" id="searchInput" class="form-control pe-5" placeholder="Search by name or phone number">
+            <span id="clearSearch"
+                style="
+                    position: absolute;
+                    top: 50%;
+                    right: 15px;
+                    transform: translateY(-50%);
+                    font-size: 1.5rem;
+                    color: #999;
+                    cursor: pointer;
+                    display: none;
+                    user-select: none;
+                ">&times;</span>
+        </div>
+
+        <!--<a href="{% url 'billing:export_customers_csv' %}" class="btn btn-success">Export CSV</a>-->
+        <a href="{% url 'billing:export_customers_excel' %}" class="btn btn-primary">Export Excel</a>
+    </div>
+</div>
+
+
+
+    <!-- Wrap table in a centered container -->
+<div class="container mt-4" style="max-width: 70%;">
+    <table class="table table-striped table-bordered mx-auto" id="customerTable" style="width: 100%;">
+        <thead class="table-dark">
+            <tr>
+                <th>ID</th>
+                <th>Name</th>
+                <th>Phone Number</th>
+            </tr>
+        </thead>
+        <tbody id="customerBody">
+            {% for customer in customers %}
+            <tr>
+                <td>{{ customer.id }}</td>
+                <td>{{ customer.name }}</td>
+                <td>{{ customer.phone_number|default:"—" }}</td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="3">No customers found.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const searchInput = document.getElementById("searchInput");
+    const clearBtn = document.getElementById("clearSearch");
+    const tableBody = document.getElementById("customerBody");
+
+    let debounceTimer;
+
+    function fetchAndRender(query = '') {
+        fetch(`/billing/customers/?q=${encodeURIComponent(query)}`, {
+            headers: { "X-Requested-With": "XMLHttpRequest" }
+        })
+        .then(res => res.json())
+        .then(data => {
+            tableBody.innerHTML = "";
+            if (data.customers.length === 0) {
+                tableBody.innerHTML = `<tr><td colspan="3">No customers found.</td></tr>`;
+                return;
+            }
+
+            data.customers.forEach(c => {
+                const row = `<tr>
+                    <td>${c.id}</td>
+                    <td>${c.name}</td>
+                    <td>${c.phone_number}</td>
+                </tr>`;
+                tableBody.insertAdjacentHTML("beforeend", row);
+            });
+        });
+    }
+
+    searchInput.addEventListener("input", function () {
+        const query = searchInput.value.trim();
+
+        clearBtn.style.display = query ? "block" : "none";
+
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            fetchAndRender(query);
+        }, 300);
+    });
+
+    clearBtn.addEventListener("click", function () {
+        searchInput.value = "";
+        clearBtn.style.display = "none";
+        fetchAndRender();  // reset table
+    });
+});
+</script>
+{% endblock %}
