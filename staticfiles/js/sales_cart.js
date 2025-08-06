@@ -499,7 +499,7 @@ document.addEventListener("DOMContentLoaded", function () {
     // Auto-dismiss after 3 seconds
     setTimeout(() => {
       alertDiv.classList.add("d-none");
-    }, 3000);
+    }, 10000);
   };
 });
 
@@ -561,7 +561,7 @@ function checkSingleSelectedOption(option) {
 
     let showExpiryLater = false;
 
-    if (stockLevel > 0 && stockLevel <= 20) {
+    if (stockLevel > 0 && stockLevel <= 3) {
         const msg = `⚠️ Warning: '${option.text}' is running low on stock (Only ${stockLevel} left).`;
         document.getElementById("lowStockMessage").textContent = msg;
 
@@ -590,7 +590,7 @@ function checkSingleSelectedOption(option) {
             }
             document.getElementById("expiryMessage").textContent = msg;
 
-            if (stockLevel > 0 && stockLevel <= 20) {
+            if (stockLevel > 0 && stockLevel <= 3) {
                 showExpiryLater = true;
             } else {
                 expiryModalEl.addEventListener("hidden.bs.modal", function handler() {
@@ -822,7 +822,7 @@ if (modalEl) {
         return;
     }
 
-    if (stockLevel > 0 && stockLevel <= 20) {
+    if (stockLevel > 0 && stockLevel <= 3) {
         const msg = `⚠️ Warning: The selected product '${selectedOption.text}' is running low on stock (Only ${stockLevel} left).`;
         document.getElementById("lowStockMessage").textContent = msg;
         new bootstrap.Modal(document.getElementById("lowStockModal")).show();
@@ -874,7 +874,7 @@ let stockExpiryModalShown = {
 
 
 
-//==================================================================
+//===============================================================
 // Function must be declared before use
 let lastNotifiedProductId = null;  // Add this near the top of your script, globally
 
@@ -891,7 +891,7 @@ function checkStockAndExpiryForSearchResults() {
         const productId = option.value;
 
         // Low stock modal logic
-        if (!foundLowStock && stockLevel > 0 && stockLevel <= 20 && !stockExpiryModalShown.lowStock) {
+        if (!foundLowStock && stockLevel > 0 && stockLevel <= 3 && !stockExpiryModalShown.lowStock) {
             if (lastNotifiedProductId !== productId) {
                 const msg = `⚠️ Warning: '${option.text}' is running low on stock (Only ${stockLevel} left).`;
                 console.log(msg);

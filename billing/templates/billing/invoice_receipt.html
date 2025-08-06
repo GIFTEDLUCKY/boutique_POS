@@ -142,22 +142,22 @@
         <table>
             <tr class="total">
                 <td><strong>Total:</strong></td>
-                <td>₦ {{ total|floatformat:2 }}</td>
+                <td>₵ {{ total|floatformat:2 }}</td>
             </tr>
             <tr>
                 <td><strong>Amount Paid:</strong></td>
-                <td>₦ {{ amount_paid|floatformat:2 }}</td>
+                <td>₵ {{ amount_paid|floatformat:2 }}</td>
             </tr>
             
             <tr>
                 <td><strong>Change/Balance:</strong></td>
                 <td>
                     {% if amount_paid == 0 or amount_paid is None %}
-                        ₦ 0.00
+                        ₵ 0.00
                     {% elif change < 0 %}
-                        Balance: ₦ {{ change|floatformat:2 }}
+                        Balance: ₵ {{ change|floatformat:2 }}
                     {% else %}
-                        Change: ₦ {{ change|floatformat:2 }}
+                        Change: ₵ {{ change|floatformat:2 }}
                     {% endif %}
                 </td>
             </tr>
@@ -175,8 +175,8 @@
             {% else %}
                 <p>No QR Code available</p>
             {% endif %}
-
-            <p>POS Designed by GLIMS Inventory: +234 806 718 4880</p>
+            <p><strong>Payment finalized for goods are non-refundable.</strong></p>
+            <p>POS Designed by GLIMS Inventory: +233 50 375 1834</p>
         </div>
 
 <!-- More transaction details here -->

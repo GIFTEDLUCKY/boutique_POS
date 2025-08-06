@@ -51,7 +51,7 @@
                             data-product-tax="{{ product.product_tax }}" 
                             data-stock="{{ product.quantity }}"
                             data-expiry="{{ product.expiry_date|date:'Y-m-d' }}">
-                            {{ product.name }} - ₦ {{ product.selling_price }}
+                            {{ product.name }} - ₵ {{ product.selling_price }}
                         </option>
                     {% empty %}
                         <option disabled>No products available for this store</option>
@@ -107,8 +107,8 @@
                         <tr>
                             <th>Product</th>
                             <th>Quantity</th>
-                            <th>Price (₦)</th>
-                            <th>Subtotal (₦)</th>
+                            <th>Price (₵)</th>
+                            <th>Subtotal (₵)</th>
                             <th>Actions</th>  <!-- ONLY ONE Action header -->
                         </tr>
                     </thead>
@@ -122,7 +122,7 @@
                 <!-- Total and Checkout Section -->
                 <div class="mt-4">
                     <!-- Display total from backend -->
-                    <h1>Total: ₦ <span id="total_display">0.00</span></h1>
+                    <h1>Total: ₵ <span id="total_display">0.00</span></h1>
 
                     <button type="button" class="btn btn-primary" id="generate_invoice_btn">
                     Generate Invoice
@@ -138,7 +138,7 @@
                 <!-- Visible Change Result Below Cart -->
                 <div class="mt-4 d-flex align-items-center justify-content-center" style="gap: 1rem; width: 100%;">
                     <label for="change" class="form-label mb-0" style="font-size: 3rem; font-weight: bold; color: green;">Change</label>
-                    <span style="font-size: 3rem; font-weight: bold; color: green;">₦:</span>    
+                    <span style="font-size: 3rem; font-weight: bold; color: green;">₵:</span>    
                     <input type="text" id="change" name="change" readonly style="
                         font-size: 3rem;
                         padding: 10px;

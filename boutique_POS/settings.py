@@ -12,9 +12,11 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 from datetime import datetime
-from pathlib import Path
 import os
+from dotenv import load_dotenv
 
+print("GAE_ENV:", os.getenv('GAE_ENV', 'NOT SET'))
+print("DB_HOST:", os.getenv('DB_HOST', 'NOT SET'))
 
 # Define BASE_DIR as a Path object
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -122,13 +124,26 @@ WSGI_APPLICATION = 'boutique_POS.wsgi.application'
 
 # Databases
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases 
-
 import os
 from dotenv import load_dotenv
 
-load_dotenv()  # Load environment variables from a .env file
+load_dotenv()
 
-DATABASES = {
+if os.getenv('GAE_ENV', '').startswith('standard'):
+    # Production (App Engine) - use UNIX socket for Cloud SQL
+    DATABASES = {
+    'default': {
+        'ENGINE': 'django.db.backends.mysql',
+        'NAME': 'giftedlucky$boutique_db',
+        'USER': 'giftedlucky',
+        'PASSWORD': 'Lu@582580',  # the password you set for MySQL
+        'HOST': 'giftedlucky.mysql.pythonanywhere-services.com',
+        'PORT': '3306',
+    }
+}
+
+else:
+    DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.mysql',
         'NAME': 'boutique_db',  # New database name

@@ -87,8 +87,8 @@ if (productSearchInput && searchUrl) {
             row.innerHTML = `
                 <td>${item.name}</td>
                 <td>${item.quantity}</td>
-                <td>₦ ${item.price.toFixed(2)}</td>
-                <td>₦ ${subtotal.toFixed(2)}</td>
+                <td>₵ ${item.price.toFixed(2)}</td>
+                <td>₵ ${subtotal.toFixed(2)}</td>
                 <td>
                     <button class="btn btn-sm btn-primary" onclick="editQuantity(${index})">Edit</button>
                     <button class="btn btn-sm btn-danger" onclick="deleteItem(${index})">Delete</button>
@@ -118,7 +118,7 @@ if (productSearchInput && searchUrl) {
 
         selectedOptions.forEach(option => {
             const id = option.value;
-            const name = option.textContent.split(" - ₦")[0];
+            const name = option.textContent.split(" - ₵")[0];
             const price = parseFloat(option.dataset.taxedPrice || option.dataset.discountedPrice || option.dataset.price);
             
             const existing = window.cart.find(item => item.id === id);
@@ -977,7 +977,7 @@ if (searchInput && productDropdown) {
                         productList.forEach(product => {
                             const option = document.createElement("option");
                             option.value = product.id;
-                            option.textContent = `${product.name} - ₦${product.selling_price}`;
+                            option.textContent = `${product.name} - ₵${product.selling_price}`;
 
                             const stock = product.quantity !== undefined ? product.quantity : "0";
                             option.setAttribute("data-stock", stock);
