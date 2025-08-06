@@ -129,30 +129,30 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-if os.getenv('GAE_ENV', '').startswith('standard'):
-    # Production (App Engine) - use UNIX socket for Cloud SQL
+if os.getenv('PYTHONANYWHERE') == 'true':
     DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'giftedlucky$boutique_db',
-        'USER': 'giftedlucky',
-        'PASSWORD': 'Lu@582580',  # the password you set for MySQL
-        'HOST': 'giftedlucky.mysql.pythonanywhere-services.com',
-        'PORT': '3306',
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'giftedlucky$boutique_db',
+            'USER': 'giftedlucky',
+            'PASSWORD': 'Lu@582580',
+            'HOST': 'giftedlucky.mysql.pythonanywhere-services.com',
+            'PORT': '3306',
+        }
     }
-}
-
 else:
+    # Local dev settings
     DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.mysql',
-        'NAME': 'boutique_db',  # New database name
-        'USER': 'admin',
-        'PASSWORD': 'admin',
-        'HOST': 'localhost',  # Or 'localhost'
-        'PORT': '3306',
+        'default': {
+            'ENGINE': 'django.db.backends.mysql',
+            'NAME': 'boutique_db',
+            'USER': 'admin',
+            'PASSWORD': 'admin',
+            'HOST': 'localhost',
+            'PORT': '3306',
+        }
     }
-}
+
 
 
 
