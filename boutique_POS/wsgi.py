@@ -1,5 +1,7 @@
 import os
 import sys
+from django.core.wsgi import get_wsgi_application
+from whitenoise import WhiteNoise
 
 # Add your project directory to the Python path
 project_home = '/home/giftedlucky/boutique_POS/boutique_POS'
@@ -16,3 +18,5 @@ os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'boutique_POS.settings')
 
 from django.core.wsgi import get_wsgi_application
 application = get_wsgi_application()
+
+application = WhiteNoise(application, root='/home/giftedlucky/boutique_POS/boutique_POS/staticfiles')
