@@ -1,6 +1,9 @@
 import os
 import sys
 
+# Tell Django we're on PythonAnywhere
+os.environ['PYTHONANYWHERE'] = 'true'
+
 # Correct project directory - includes the inner boutique_POS folder
 project_home = '/home/giftedlucky/boutique_POS/boutique_POS'
 if project_home not in sys.path:
