@@ -129,7 +129,10 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
-if os.getenv('PYTHONANYWHERE') == 'true':
+import os
+
+if os.getenv('PYTHONANYWHERE', '') == 'true':
+    print("Using PythonAnywhere MySQL config")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -141,7 +144,7 @@ if os.getenv('PYTHONANYWHERE') == 'true':
         }
     }
 else:
-    # Local dev settings
+    print("Using local MySQL config")
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.mysql',
@@ -152,6 +155,7 @@ else:
             'PORT': '3306',
         }
     }
+
 
 
 
