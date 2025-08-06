@@ -156,9 +156,7 @@ else:
         }
     }
 
-
-
-
+print("DATABASES config:", DATABASES)
 
 
 # Password validation
