@@ -156,7 +156,7 @@ else:
         }
     }
 
-print("DATABASES config:", DATABASES)
+
 
 
 # Password validation
@@ -183,7 +183,7 @@ AUTH_PASSWORD_VALIDATORS = [
 
 LANGUAGE_CODE = 'en-us'
 
-TIME_ZONE = 'Africa/Lagos'
+TIME_ZONE = 'Africa/Accra'
 
 USE_I18N = True
 

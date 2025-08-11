@@ -55,19 +55,19 @@
 <div class="mb-4 flex flex-wrap gap-2">
 
     <span class="inline-block p-2 bg-green-100 rounded shadow text-green-800 font-semibold">
-        Total Revenue ₦: {{ total_revenue|floatformat:2 }}
+        Total Revenue ₵: {{ total_revenue|floatformat:2 }}
     </span>
 
     <span class="inline-block p-2 bg-red-100 rounded shadow text-red-800 font-semibold">
-        Total Cost ₦: {{ total_cost|floatformat:2 }}
+        Total Cost ₵: {{ total_cost|floatformat:2 }}
     </span>
 
     <span class="inline-block p-2 bg-blue-100 rounded shadow text-blue-800 font-semibold">
-        Profit ₦: {{ total_profit|floatformat:2 }}
+        Profit ₵: {{ total_profit|floatformat:2 }}
     </span>
 
     <span class="inline-block p-2 bg-yellow-100 rounded shadow text-yellow-800 font-semibold">
-        Loss ₦: {{ total_loss|floatformat:2 }}
+        Loss ₵: {{ total_loss|floatformat:2 }}
     </span>
 
 </div>
@@ -110,7 +110,7 @@
             <td class="border px-2 py-1">
                 {{ tx.final_selling_price|floatformat:2|default_if_none:"-" }}
             </td>
-            
+
 
             <td class="border px-2 py-1">{{ tx.total_cost|floatformat:2 }}</td>
             <td class="border px-2 py-1">{{ tx.total_revenue|floatformat:2 }}</td>
@@ -137,7 +137,7 @@
     {% endif %}
   </div>
   <div style="flex: 1; min-width: 300px; text-align: center;">
-    
+
     {% if product_bar_chart %}
     <h3>Profit/Loss by Product</h3>
     <img src="data:image/png;base64,{{ product_bar_chart }}" alt="Product Bar Chart">

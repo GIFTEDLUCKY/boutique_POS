@@ -84,12 +84,16 @@ def profit_and_loss_view(request):
     summary = {}
     for invoice in invoices:
         product = invoice.product
-        store = invoice.product.store
+        store = product.store
 
-        discount_value = product.selling_price * (product.discount / 100)
-        selling_price_after_discount = product.selling_price - discount_value
-        tax_value = selling_price_after_discount * (product.product_tax / 100)
-        final_price = selling_price_after_discount + tax_value
+        qty = invoice.quantity
+        unit_cost = product.cost_price
+        unit_final_price = invoice.adjusted_final_price / invoice.quantity if invoice.quantity else 0
+
+
+        total_cost = unit_cost * qty
+        total_revenue = unit_final_price * qty
+        profit = total_revenue - total_cost
 
         key = (product.id, store.id)
         if key not in summary:
@@ -97,16 +101,19 @@ def profit_and_loss_view(request):
                 'product_name': product.name,
                 'store_name': store.name,
                 'total_qty': 0,
+                'unit_cost': unit_cost,
+                'unit_price': invoice.price,  # price before discounts/tax (unit)
+                'final_selling_price': unit_final_price,  # unit final price (after tax & discount)
+                'total_cost': 0,
                 'total_revenue': 0,
-                'unit_price': product.selling_price,
-                'final_selling_price': final_price,
+                'total_profit': 0,
             }
 
-        qty = invoice.quantity
-        total_revenue = final_price * qty
-
         summary[key]['total_qty'] += qty
+        summary[key]['total_cost'] += total_cost
         summary[key]['total_revenue'] += total_revenue
+        summary[key]['total_profit'] += profit
+
 
     # Calculate unit cost and profit for each summary item
     for (product_id, store_id), item in summary.items():
@@ -323,35 +330,39 @@ def export_profit_loss_excel(request):
     return response
 
 
-
 from django.shortcuts import render, redirect
-from reports.models import PriceHistory
 from reports.forms import PriceHistoryForm
 from django.contrib.auth.decorators import login_required
+import logging
+from django.db import transaction
+
+logger = logging.getLogger(__name__)
 
 @login_required
 def price_history_view(request):
-    history = PriceHistory.objects.select_related('product', 'changed_by').all().order_by('-date_changed')
-
     if request.method == 'POST':
         form = PriceHistoryForm(request.POST)
         if form.is_valid():
-            price_history = form.save(commit=False)
-            price_history.changed_by = request.user
-            price_history.save()
+            with transaction.atomic():
+                product = form.cleaned_data['product']
+                new_cp = form.cleaned_data['new_cp']
+                new_sp = form.cleaned_data['new_sp']
 
-            # Update Product prices here, after PriceHistory saved
-            product = price_history.product
-            if price_history.new_cp is not None:
-                product.cost_price = price_history.new_cp
-            if price_history.new_sp is not None:
-                product.selling_price = price_history.new_sp
-            product.save()
+                # Update product prices directly
+                product.cost_price = new_cp
+                product.selling_price = new_sp
+                product.save(update_fields=['cost_price', 'selling_price'])
 
-            return redirect('price_history')  # Replace with your URL name
+                logger.info(f"Updated Product {product.id} prices to CP={product.cost_price}, SP={product.selling_price}")
+                print(f"Updated Product {product.id} prices to CP={product.cost_price}, SP={product.selling_price}")
+
+            return redirect('price_history')
     else:
         form = PriceHistoryForm()
 
+    # Display all price history records as before
+    from reports.models import PriceHistory
+    history = PriceHistory.objects.select_related('product', 'changed_by').all().order_by('-date_changed')
     return render(request, 'reports/price_history.html', {
         'history': history,
         'form': form
@@ -359,7 +370,7 @@ def price_history_view(request):
 
 
 from django.http import JsonResponse
-from store.models import Product  # Assuming your product model is here
+from store.models import Product
 
 def product_price_api(request):
     product_id = request.GET.get('product_id')
@@ -367,9 +378,9 @@ def product_price_api(request):
     if product_id:
         try:
             product = Product.objects.get(id=product_id)
-            # Assuming your Product model has fields for cost_price and selling_price
-            data['old_cp'] = str(product.cost_price)  # or your actual cost price field name
-            data['old_sp'] = str(product.selling_price)  # or your actual selling price field name
+            data['old_cp'] = str(product.cost_price)
+            data['old_sp'] = str(product.selling_price)
         except Product.DoesNotExist:
             pass
     return JsonResponse(data)
+

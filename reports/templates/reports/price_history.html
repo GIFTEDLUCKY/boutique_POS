@@ -3,7 +3,7 @@
 
 <h3>Add New Price History</h3>
 
-<form method="post">
+<form method="post" id="priceHistoryForm">
   {% csrf_token %}
   <div style="
     max-width: 600px;
@@ -139,4 +139,16 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('priceHistoryForm');
+    form.addEventListener('submit', function() {
+        const submitBtn = form.querySelector('button[type="submit"]');
+        if (submitBtn) {
+            submitBtn.disabled = true;
+            submitBtn.innerText = "Saving...";
+        }
+    });
+});
+</script>
 {% endblock %}
