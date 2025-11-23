@@ -30,11 +30,11 @@ class WarehouseStockForm(forms.ModelForm):
 
 
 
-
-
 from django import forms
 from django.core.exceptions import ValidationError
-from .models import StockTransfer, WarehouseStock, Requisition, RequisitionItem, StoreProduct
+from django.db import transaction
+from .models import StockTransfer, WarehouseStock, Requisition, RequisitionItem
+
 
 class StockTransferForm(forms.ModelForm):
     requisition = forms.ModelChoiceField(
@@ -43,13 +43,13 @@ class StockTransferForm(forms.ModelForm):
     )
 
     product = forms.ModelChoiceField(
-        queryset=WarehouseStock.objects.none(),  # Set dynamically later
+        queryset=WarehouseStock.objects.none(),  # Will be set dynamically
         label="Select Product",
         widget=forms.Select(attrs={'class': 'form-control'})
     )
 
     quantity = forms.IntegerField(
-        min_value=1, 
+        min_value=1,
         label="Quantity to Transfer",
         widget=forms.NumberInput(attrs={'class': 'form-control'})
     )
@@ -59,10 +59,10 @@ class StockTransferForm(forms.ModelForm):
         fields = ['requisition', 'product', 'quantity', 'destination_store']
 
     def __init__(self, *args, **kwargs):
-        requisition_instance = kwargs.pop('requisition', None)  
+        requisition_instance = kwargs.pop('requisition', None)
         super().__init__(*args, **kwargs)
 
-        # Fetch only unique products from WarehouseStock that have quantity available
+        # Show only warehouse products with stock available
         self.fields['product'].queryset = WarehouseStock.objects.filter(quantity__gt=0).distinct('product')
 
         if requisition_instance:
@@ -71,50 +71,93 @@ class StockTransferForm(forms.ModelForm):
             self.fields['requisition'].widget.attrs['readonly'] = True
 
     def clean(self):
-        """Validate requisition item approval and stock availability"""
         cleaned_data = super().clean()
         requisition = cleaned_data.get("requisition")
-        product = cleaned_data.get("product")
+        warehouse_stock = cleaned_data.get("product")
         quantity = cleaned_data.get("quantity")
 
         if not requisition:
             self.add_error("requisition", "Requisition is required.")
 
-        if product:
-            # Validate that the requisition item is approved
+        if warehouse_stock and requisition:
+            # Check if this product is approved for the requisition
             requisition_item = RequisitionItem.objects.filter(
                 requisition=requisition,
-                product=product.product,
-                status="Approved"  # Ensure item itself is approved
+                product=warehouse_stock.product,
+                status="Approved"
             ).first()
 
             if not requisition_item:
-                self.add_error("product", f"Product {product.product.name} is not approved for transfer.")
+                self.add_error("product", f"{warehouse_stock.product.name} is not approved for transfer.")
 
             elif requisition_item.approved_quantity < quantity:
                 self.add_error("quantity", f"Cannot transfer more than approved quantity ({requisition_item.approved_quantity}).")
 
-            # Validate stock availability in WarehouseStock
-            warehouse_stock = WarehouseStock.objects.filter(product=product.product).first()
-            if warehouse_stock and warehouse_stock.quantity < quantity:
-                self.add_error("quantity", f"Not enough stock for {product.product.name} in warehouse.")
+            # Check warehouse stock
+            if warehouse_stock.quantity < quantity:
+                self.add_error("quantity", f"Not enough stock for {warehouse_stock.product.name}.")
 
         return cleaned_data
 
     def save(self, commit=True):
-        """Explicitly set requisition and product before saving"""
+        """
+        Save the stock transfer safely and update WarehouseStock and RequisitionItem.
+        """
         instance = super().save(commit=False)
-        if self.cleaned_data.get('requisition'):
-            instance.requisition = self.cleaned_data['requisition']
+        requisition = self.cleaned_data.get('requisition')
+        warehouse_stock = self.cleaned_data.get('product')
+        quantity = self.cleaned_data.get('quantity')
 
-        if self.cleaned_data.get('product') and isinstance(self.cleaned_data['product'], WarehouseStock):
-            instance.product = self.cleaned_data['product'].product  # Extract Product from WarehouseStock
-        else:
-            raise ValidationError("Invalid product selection: Must be a WarehouseStock instance.")
+        if not warehouse_stock or not isinstance(warehouse_stock, WarehouseStock):
+            raise ValidationError("Invalid product selection.")
 
-        if commit:
-            instance.save()
+        instance.product = warehouse_stock.product
+        instance.requisition = requisition
+
+        with transaction.atomic():
+            # Decrease warehouse stock
+            if instance.pk is None:  # New transfer
+                if warehouse_stock.quantity < quantity:
+                    raise ValidationError(f"Not enough stock for {warehouse_stock.product.name}.")
+                warehouse_stock.quantity -= quantity
+                warehouse_stock.save()
+
+                # Decrease approved quantity
+                requisition_item = RequisitionItem.objects.get(
+                    requisition=requisition,
+                    product=warehouse_stock.product
+                )
+                requisition_item.approved_quantity -= quantity
+                requisition_item.save()
+            else:
+                # Existing transfer: handle edit carefully or call reverse_transfer()
+                pass
+
+            if commit:
+                instance.save()
+
         return instance
+
+    @staticmethod
+    def reverse_transfer(stock_transfer: StockTransfer):
+        """
+        Reverse a transfer: restore warehouse stock and approved quantity.
+        """
+        with transaction.atomic():
+            warehouse_stock = WarehouseStock.objects.get(product=stock_transfer.product)
+            requisition_item = RequisitionItem.objects.get(
+                requisition=stock_transfer.requisition,
+                product=stock_transfer.product
+            )
+
+            warehouse_stock.quantity += stock_transfer.quantity
+            warehouse_stock.save()
+
+            requisition_item.approved_quantity += stock_transfer.quantity
+            requisition_item.save()
+
+            stock_transfer.delete()
+
 
 
 # ================================
@@ -132,51 +175,84 @@ class RequisitionForm(forms.ModelForm):
         for field_name, field in self.fields.items():
             field.widget.attrs['class'] = 'form-control'
 
+
 from django import forms
-from django.db.models import Min
-from .models import RequisitionItem, StoreProduct
+from .models import RequisitionItem, WarehouseStock, Requisition
+
 
 class RequisitionItemForm(forms.ModelForm):
+    requisition = forms.ModelChoiceField(
+        queryset=Requisition.objects.all(),
+        label="Select Requisition",
+        required=True,
+        error_messages={'required': 'Please select a requisition.'},
+        widget=forms.Select(attrs={'class': 'form-control'})
+    )
+
     product = forms.ModelChoiceField(
-        queryset=StoreProduct.objects.none(),  # Initially empty
+        queryset=WarehouseStock.objects.none(),  # Will set dynamically
         label="Select Product",
         widget=forms.Select(attrs={'class': 'form-control'}),
         empty_label="Select a Product",
+        required=True,
+        error_messages={'required': 'Please select a product.'},
+    )
+
+    quantity_requested = forms.IntegerField(
+        label="Quantity Requested",
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+        min_value=1,
+        required=True,
+        error_messages={'required': 'Please enter a valid quantity.'},
+    )
+
+    status = forms.ChoiceField(
+    choices=RequisitionItem.STATUS_CHOICES,
+    label="Status",
+    widget=forms.Select(attrs={'class': 'form-control'}),
+    required=True
+    )
+
+    approved_quantity = forms.IntegerField(
+        label="Approved Quantity",
+        widget=forms.NumberInput(attrs={'class': 'form-control'}),
+        min_value=0,
+        required=True
     )
 
     class Meta:
         model = RequisitionItem
-        fields = ['product', 'quantity_requested']
+        fields = ['requisition','product', 'quantity_requested']
 
     def __init__(self, *args, **kwargs):
-        store_id = kwargs.pop('store_id', None)  # Expecting store_id to be passed
+        store_id = kwargs.pop('store_id', None)
         super().__init__(*args, **kwargs)
 
+        # If store_id is provided (normal forms), filter by store
         if store_id:
-            # Fetch distinct master_product_id entries linked to warehouse stock
-            unique_products = StoreProduct.objects.filter(
-                store_id=store_id
-            ).exclude(warehouse_stock_id__isnull=True)  # Exclude NULL warehouse_stock
-
-            unique_product_ids = (
-                unique_products.values('master_product_id')
-                .annotate(first_id=Min('id'))
-                .values_list('first_id', flat=True)
-            )
-
-            # Apply the filtered product list to the queryset
-            self.fields['product'].queryset = StoreProduct.objects.filter(id__in=unique_product_ids)
+            self.fields['product'].queryset = WarehouseStock.objects.filter(
+                store_product__store_id=store_id
+            ).distinct()
+        else:
+            # Admin or no store_id: show all WarehouseStock
+            self.fields['product'].queryset = WarehouseStock.objects.all()
 
         # Apply Bootstrap styling
-        for field_name, field in self.fields.items():
+        for field in self.fields.values():
             field.widget.attrs['class'] = 'form-control'
 
     def clean_product(self):
-        """Ensure a product is selected."""
         product = self.cleaned_data.get('product')
         if not product:
-            raise forms.ValidationError("This field is required.")
+            raise forms.ValidationError("Please select a product.")
         return product
+
+    def clean_quantity_requested(self):
+        qty = self.cleaned_data.get('quantity_requested')
+        if qty is None or qty <= 0:
+            raise forms.ValidationError("Please enter a valid quantity.")
+        return qty
+
     
 
     

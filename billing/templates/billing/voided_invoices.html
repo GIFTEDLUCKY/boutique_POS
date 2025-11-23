@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block content %}
+
+<div class="container mt-4">
+    <h4 class="text-center mb-3">Voided Invoices</h4>
+
+    {% if voided_list %}
+        <table class="table table-bordered table-striped table-sm">
+            <thead class="table-dark">
+                <tr>
+                    <th>Invoice No.</th>
+                    <th>Customer Name</th>
+                    <th>Total Amount</th>
+                    <th>Created At</th>
+                    <th>Voided By</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for invoice in voided_list %}
+                <tr>
+                    <td>
+                        <a href="{% url 'billing:invoice_detail' invoice.invoice_number %}" class="text-decoration-none">
+                            {{ invoice.invoice_number }}
+                        </a>
+                    </td>
+                    <td>{{ invoice.customer_name }}</td>
+                    <td>{{ invoice.total_amount }}</td>
+                    <td>{{ invoice.created_at|date:"d-m-Y H:i" }}</td>
+                    <td>{{ invoice.user.username }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    {% else %}
+        <p class="text-center text-muted">No voided invoices found.</p>
+    {% endif %}
+</div>
+
+{% endblock %}

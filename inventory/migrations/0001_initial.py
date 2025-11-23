@@ -48,7 +48,7 @@ class Migration(migrations.Migration):
             name='Requisition',
             fields=[
                 ('id', models.BigAutoField(auto_created=True, primary_key=True, serialize=False, verbose_name='ID')),
-                ('requisition_number', models.CharField(blank=True, default=inventory.models.generate_unique_number, editable=False, max_length=10, null=True, unique=True)),
+                ('requisition_number', models.CharField(blank=True, default=inventory.models.generate_sequential_number, editable=False, max_length=10, null=True, unique=True)),
                 ('status', models.CharField(choices=[('Pending', 'Pending'), ('Approved', 'Approved'), ('Rejected', 'Rejected')], default='Pending', max_length=10)),
                 ('reason', models.TextField(blank=True, null=True)),
                 ('created_at', models.DateTimeField(auto_now_add=True)),

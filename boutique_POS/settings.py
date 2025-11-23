@@ -66,22 +66,27 @@ INSTALLED_APPS = [
     'expenses',
     'inventory',
     'reports',
+    'rest_framework',
     
 ]
 
 MIDDLEWARE = [
-    'boutique_POS.middleware.ExpiryCheckMiddleware',  
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
-    'boutique_POS.middleware.CurrentUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
-    
+
+    # ✅ Correct middleware name
+    'boutique_POS.middleware.LicenseExpiryMiddleware',
+
+    'boutique_POS.middleware.LoginRequiredMiddleware',
+
 ]
+
 
 ROOT_URLCONF = 'boutique_POS.urls'
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -97,7 +102,13 @@ DEFAULT_FROM_EMAIL = EMAIL_HOST_USER
 
 
 
-EXPIRATION_DATE = datetime(2026, 4, 30)
+from datetime import datetime
+from django.utils import timezone
+
+
+LICENSE_EXPIRY_DATE = "2025-11-29"
+
+
 
 TEMPLATES = [
     {
@@ -206,6 +217,8 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 STATIC_URL = '/static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
+LOGIN_REDIRECT_URL = '/'
+
 
 # Enable WhiteNoise for serving static files
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'

@@ -18,11 +18,13 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from dashboard import views
 
 urlpatterns = [
     # Admin site
     path('admin/', admin.site.urls),
 
+    path('continue_project/', views.continue_project, name='continue_project'),
     # Account-related URLs
     path('accounts/', include('accounts.urls', namespace='accounts')),
     path('', include('django.contrib.auth.urls')),

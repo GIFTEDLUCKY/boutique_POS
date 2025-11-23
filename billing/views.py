@@ -103,6 +103,29 @@ def invoice_receipt(request, invoice_id):
     return render(request, 'billing/invoice_receipt.html', context)
 
 
+# billing/views.py
+from django.http import JsonResponse
+from django.contrib.auth.decorators import login_required
+from django.views.decorators.csrf import csrf_exempt
+from .models import CustomerInvoice
+from .printers import open_cash_drawer  # import your win32print drawer function
+from django.shortcuts import get_object_or_404
+
+@login_required
+@csrf_exempt
+def open_drawer_view(request, invoice_id):
+    if request.method != "POST":
+        return JsonResponse({"error": "Invalid request method"}, status=405)
+
+    # Validate invoice exists
+    get_object_or_404(CustomerInvoice, id=invoice_id)
+
+    # Trigger cash drawer
+    drawer_opened = open_cash_drawer()
+
+    return JsonResponse({"drawer_opened": drawer_opened})
+
+
 
 from django.shortcuts import render, redirect
 from django.contrib.auth.decorators import login_required
@@ -156,10 +179,12 @@ def sales_view(request):
     invoice_id = customer_invoice.id
 
     # Filter products based on user role
-    if role == 'cashier':
+    if role == 'cashier' or role == 'admin':
         products = Product.objects.filter(store=user_store, status=True)
-    elif role == 'admin':
-        products = Product.objects.filter(store=user_store, status=True)
+    elif role == 'staff':
+        products = Product.objects.filter(store=user_store, status=True)  # Adjust filter if needed
+    else:
+        products = Product.objects.none()  # Default empty queryset for unknown roles
 
 
     # Identify low stock products
@@ -395,6 +420,8 @@ from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404
 from .models import CustomerInvoice, TransactionInvoice, Customer
 from store.models import Product, TaxAndDiscount
+from .printers import open_cash_drawer
+
 
 @login_required
 @csrf_protect
@@ -511,7 +538,10 @@ def generate_invoice(request):
 
         invoice.save()
 
+        
+
         return JsonResponse({'invoice_id': invoice.id})
+
 
     except Exception as e:
         print(f"Error in generate_invoice: {e}")
@@ -716,7 +746,10 @@ def all_transactions(request):
     start_date = request.GET.get('start_date')
     end_date = request.GET.get('end_date')
 
-    transactions = TransactionInvoice.objects.all().order_by('-created_at')
+    transactions = TransactionInvoice.objects.filter(
+    customer_invoice__is_void=False
+    ).order_by('-created_at')
+
 
     # Apply filter_field and filter_value
     if filter_field and filter_value:
@@ -752,50 +785,53 @@ def all_transactions(request):
 
 
 
-
 from django.shortcuts import render
-from django.db.models import Q
+from django.db.models import Q, Sum
 from datetime import datetime, timedelta
 from django.core.paginator import Paginator
 from billing.models import TransactionInvoice
 from store.models import TaxAndDiscount
-from django.db.models import Sum
+from django.http import JsonResponse
+from django.utils.dateparse import parse_date
+import logging
 
 
+# ====== Transaction List View ======
 def transactions_list(request):
-    # Fetch transactions with necessary related data
-    transactions = TransactionInvoice.objects.select_related('customer_invoice', 'product', 'store')
+    # Fetch transactions with necessary related data, excluding voided ones
+    transactions = (
+        TransactionInvoice.objects
+        .select_related('customer_invoice', 'product', 'store')
+        .exclude(is_void=True)  # ✅ exclude voided transactions
+    )
 
     # Fetch global tax and discount settings (assumes only one global config)
-    global_tax_discount = TaxAndDiscount.objects.first()  # Get the first global tax and discount config
+    global_tax_discount = TaxAndDiscount.objects.first()
     global_discount = global_tax_discount.discount if global_tax_discount else 0
     global_tax = global_tax_discount.tax if global_tax_discount else 0
 
     # Calculate adjusted total sales after discount and tax
     total_sales = 0
     for transaction in transactions:
-        # Get product-specific discount and tax values
         product_discount = transaction.discount or 0
         product_tax = transaction.tax or 0
 
-        # Combine global and product-level discount/tax
         total_discount = product_discount + global_discount
         total_tax = product_tax + global_tax
 
-        # Compute prorated discount and tax based on the subtotal
         transaction.prorated_discount = (transaction.subtotal * total_discount) / 100
         transaction.prorated_tax = (transaction.subtotal * total_tax) / 100
+        transaction.adjusted_final_price = (
+            transaction.subtotal - transaction.prorated_discount + transaction.prorated_tax
+        )
 
-        # Final adjusted price for this transaction (after discount and tax)
-        transaction.adjusted_final_price = transaction.subtotal - transaction.prorated_discount + transaction.prorated_tax
-
-        # Add to cumulative total sales
-        total_sales = transactions.aggregate(total=Sum('adjusted_final_price'))['total'] or 0
-
-    # Round total sales to 2 decimal places
+    # Calculate total adjusted sales correctly
+    total_sales = sum(
+        getattr(t, 'adjusted_final_price', 0) for t in transactions
+    )
     total_sales = round(total_sales, 2)
 
-    # Handle search and filter queries from request
+    # Handle search and filter queries
     search_query = request.GET.get('search', '')
     filter_period = request.GET.get('filter', '')
     start_date = request.GET.get('start_date', '')
@@ -811,7 +847,7 @@ def transactions_list(request):
             Q(product__name__icontains=search_query)
         )
 
-    # Apply specific field filters (store, invoice number, etc.)
+    # Apply specific field filters
     if filter_field and filter_value:
         if filter_field == 'store':
             transactions = transactions.filter(store__name__icontains=filter_value)
@@ -822,7 +858,7 @@ def transactions_list(request):
         elif filter_field == 'payment_method':
             transactions = transactions.filter(customer_invoice__payment_method__icontains=filter_value)
 
-    # Apply period filters (day, week, month, year)
+    # Apply period filters
     if filter_period:
         today = datetime.today()
         if filter_period == 'day':
@@ -835,52 +871,41 @@ def transactions_list(request):
         elif filter_period == 'year':
             transactions = transactions.filter(created_at__year=today.year)
 
-    # Apply date range filter (start_date to end_date)
+    # Apply date range filter
     try:
         if start_date and end_date:
             start_date_parsed = datetime.strptime(start_date, '%Y-%m-%d').date()
             end_date_parsed = datetime.strptime(end_date, '%Y-%m-%d').date()
             transactions = transactions.filter(created_at__date__range=[start_date_parsed, end_date_parsed])
     except ValueError:
-        pass  # Ignore invalid date ranges
+        pass
 
-    # Order transactions by most recent
+    # Order and paginate
     transactions = transactions.order_by('-created_at')
-
-    # Paginate transactions
     paginator = Paginator(transactions, 10)
     page_number = request.GET.get('page')
     transactions_page = paginator.get_page(page_number)
 
-    # Return context to the template
     return render(request, 'billing/transactions_list.html', {
         'transactions': transactions_page,
-        'total_sales': total_sales,  # The total sales after applying tax and discount
+        'total_sales': total_sales,
     })
 
 
-
-from django.http import JsonResponse
-from django.utils.dateparse import parse_date
-from django.db.models import Sum
-from .models import TransactionInvoice
-import logging
-
-# Set up a logger to log any issues in the view
+# ====== Filter Transactions (AJAX) ======
 logger = logging.getLogger(__name__)
 
 def filter_transactions(request):
     try:
-        # Get filter parameters
         filter_field = request.GET.get('filter_field')
         filter_value = request.GET.get('filter_value')
         start_date = request.GET.get('start_date')
         end_date = request.GET.get('end_date')
 
-        # Start with all transactions
-        transactions = TransactionInvoice.objects.all()
+        # Exclude voided transactions
+        transactions = TransactionInvoice.objects.exclude(is_void=True)
 
-        # Apply date range filter if provided
+        # Apply date range
         if start_date and end_date:
             start_date = parse_date(start_date)
             end_date = parse_date(end_date)
@@ -892,8 +917,8 @@ def filter_transactions(request):
             filter_criteria = {}
             if filter_field == 'store':
                 filter_criteria = {'store__name__icontains': filter_value}
-            elif filter_field == 'invoice_number':  
-                filter_criteria = {'cart_id__icontains': filter_value}  
+            elif filter_field == 'invoice_number':
+                filter_criteria = {'cart_id__icontains': filter_value}
             elif filter_field == 'customer_name':
                 filter_criteria = {'customer_name__icontains': filter_value}
             elif filter_field == 'payment_method':
@@ -903,15 +928,16 @@ def filter_transactions(request):
 
             transactions = transactions.filter(**filter_criteria)
 
+        # Calculate totals
         subtotal_sum = transactions.aggregate(Sum('subtotal'))['subtotal__sum'] or 0
         tax_sum = transactions.aggregate(Sum('tax'))['tax__sum'] or 0
         total_sales = subtotal_sum + tax_sum
 
-        # Serialize transactions with 'Invoice Number' instead of 'cart_id'
+        # Serialize transactions
         transaction_data = [
             {
                 'cashier_name': transaction.user.username if transaction.user else 'Unknown',
-                'cart_id': transaction.cart_id,  
+                'cart_id': transaction.cart_id,
                 'customer_name': transaction.customer_name,
                 'payment_method': transaction.payment_method,
                 'product_name': transaction.product.name,
@@ -921,21 +947,19 @@ def filter_transactions(request):
                 'discount': transaction.product.discount,
                 'tax': transaction.product.product_tax if transaction.product.product_tax is not None else 0.00,
                 'subtotal': transaction.subtotal,
-                'prorated_discount': transaction.prorated_discount if hasattr(transaction, 'prorated_discount') else 0.00,
-                'prorated_tax': transaction.prorated_tax if hasattr(transaction, 'prorated_tax') else 0.00,
-                'adjusted_final_price': transaction.adjusted_final_price if hasattr(transaction, 'adjusted_final_price') else 0.00,
+                'prorated_discount': getattr(transaction, 'prorated_discount', 0.00),
+                'prorated_tax': getattr(transaction, 'prorated_tax', 0.00),
+                'adjusted_final_price': getattr(transaction, 'adjusted_final_price', 0.00),
                 'created_at': transaction.created_at.strftime('%d-%m-%Y') if transaction.created_at else 'N/A',
             }
             for transaction in transactions
         ]
-
 
         return JsonResponse({'transactions': transaction_data, 'total_sales': total_sales})
 
     except Exception as e:
         logger.error(f"Error in filter_transactions view: {str(e)}")
         return JsonResponse({'error': 'Internal Server Error'}, status=500)
-
 
 
 
@@ -988,8 +1012,9 @@ import openpyxl
 from openpyxl.chart import PieChart, Reference
 from collections import defaultdict
 from .models import TransactionInvoice
-from datetime import datetime, time
+from datetime import datetime
 from django.db.models import Sum, Count
+
 
 def set_column_widths(worksheet):
     for col in worksheet.columns:
@@ -1005,6 +1030,7 @@ def set_column_widths(worksheet):
                 pass
         worksheet.column_dimensions[column_letter].width = max_length + 2
 
+
 def export_transactions_to_excel(request):
     # Retrieve parameters
     start_date = request.GET.get('start_date', '').strip()
@@ -1018,8 +1044,9 @@ def export_transactions_to_excel(request):
         'product': 'product__name',
     }
 
-    transactions = TransactionInvoice.objects.all()
-    print(f"Initial transactions count: {transactions.count()}")
+    # ✅ Exclude voided invoices properly
+    transactions = TransactionInvoice.objects.filter(is_void=False)
+    print(f"Initial (non-voided) transactions count: {transactions.count()}")
 
     # Apply date filtering safely with full datetime boundaries
     if start_date:
@@ -1053,8 +1080,8 @@ def export_transactions_to_excel(request):
     count = transactions.count()
     print(f"Final transactions count after filtering: {count}")
 
+    # Handle empty result case
     if count == 0:
-        # Return Excel with headers and a message row
         wb = openpyxl.Workbook()
         ws = wb.active
         ws.title = "Transactions"
@@ -1070,7 +1097,7 @@ def export_transactions_to_excel(request):
         wb.save(response)
         return response
 
-    # Proceed to create workbook as usual
+    # Create workbook
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Transactions"
@@ -1081,17 +1108,19 @@ def export_transactions_to_excel(request):
     ]
     ws.append(headers)
 
-    product_summary = defaultdict(lambda: {'quantity': 0, 'total_price': 0.0, 'total_unit_price': 0.0, 'count': 0})
+    product_summary = defaultdict(lambda: {
+        'quantity': 0, 'total_price': 0.0, 'total_unit_price': 0.0, 'count': 0
+    })
 
     for idx, transaction in enumerate(transactions, start=2):
         ws[f'A{idx}'] = transaction.product.name
         ws[f'B{idx}'] = transaction.store.name
         ws[f'C{idx}'] = transaction.quantity
-        ws[f'D{idx}'] = transaction.price
-        ws[f'E{idx}'] = transaction.product.discount
-        ws[f'F{idx}'] = transaction.product.product_tax
-        ws[f'G{idx}'] = transaction.subtotal
-        ws[f'H{idx}'] = transaction.adjusted_final_price
+        ws[f'D{idx}'] = float(transaction.price)
+        ws[f'E{idx}'] = float(transaction.discount)
+        ws[f'F{idx}'] = float(transaction.tax)
+        ws[f'G{idx}'] = float(transaction.subtotal)
+        ws[f'H{idx}'] = float(transaction.adjusted_final_price)
         ws[f'I{idx}'] = transaction.created_at.strftime('%d-%m-%Y') if transaction.created_at else "N/A"
 
         pname = transaction.product.name
@@ -1107,8 +1136,8 @@ def export_transactions_to_excel(request):
         total_invoices=Count('cart_id', distinct=True)
     )
 
-    total_tax = sum((t.product.product_tax or 0) for t in transactions)
-    total_discount = sum((t.product.discount or 0) for t in transactions)
+    total_tax = sum((t.tax or 0) for t in transactions)
+    total_discount = sum((t.discount or 0) for t in transactions)
 
     ws.append([])
     ws.append([
@@ -1124,6 +1153,7 @@ def export_transactions_to_excel(request):
 
     set_column_widths(ws)
 
+    # Product Quantity Summary Sheet
     summary_ws = wb.create_sheet(title="Product Quantity Summary")
     summary_ws.append(["Product", "Total Quantity", "Avg Price", "Total Price (₦)"])
 
@@ -1137,6 +1167,7 @@ def export_transactions_to_excel(request):
 
     set_column_widths(summary_ws)
 
+    # Pie Chart
     pie = PieChart()
     pie.title = "Quantity Sold per Product"
     labels = Reference(summary_ws, min_col=1, min_row=2, max_row=row_idx)
@@ -1147,6 +1178,7 @@ def export_transactions_to_excel(request):
     pie.width = 10
     summary_ws.add_chart(pie, "F2")
 
+    # Return Excel file
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
@@ -1392,7 +1424,10 @@ from django.db.models import Sum
 from django.utils import timezone
 
 def invoice_list(request):
-    invoices = CustomerInvoice.objects.select_related('store', 'user').all().order_by('-created_at')
+    # ✅ Exclude voided invoices here
+    invoices = CustomerInvoice.objects.select_related('store', 'user') \
+        .filter(is_void=False) \
+        .order_by('-created_at')
 
     # Get filters
     query = request.GET.get('query')
@@ -1504,12 +1539,20 @@ import openpyxl
 from openpyxl.utils import get_column_letter
 from openpyxl.chart import BarChart, Reference
 from django.http import HttpResponse
+from collections import defaultdict
 from .models import CustomerInvoice
 
-def export_invoices_excel(request):
-    invoices = CustomerInvoice.objects.select_related('store', 'user').all().order_by('-created_at')
 
-    # Filters from request GET params
+def export_invoices_excel(request):
+    # ✅ Exclude voided invoices
+    invoices = (
+        CustomerInvoice.objects
+        .select_related('store', 'user')
+        .exclude(is_void=True)  # 👈 exclude voided invoices here
+        .order_by('-created_at')
+    )
+
+    # --- Filters from request GET params ---
     query = request.GET.get('query')
     field = request.GET.get('field')
     start_date = request.GET.get('start_date')
@@ -1527,6 +1570,7 @@ def export_invoices_excel(request):
         elif field == 'payment_method':
             invoices = invoices.filter(payment_method__icontains=query)
 
+    # --- Date filtering ---
     try:
         if start_date:
             start = datetime.strptime(start_date, "%Y-%m-%d")
@@ -1538,31 +1582,28 @@ def export_invoices_excel(request):
     except ValueError:
         pass
 
+    # --- Create Workbook ---
     wb = openpyxl.Workbook()
     ws = wb.active
     ws.title = "Invoices"
 
     headers = [
-        "Invoice Number", "Cashier", "Store", "Customer Name", "Total Amt", "Payment Mtd",
-        "Tax", "Discount", "Final Total", "Amount Paid", "Change", "Created At"
+        "Invoice Number", "Cashier", "Store", "Customer Name", "Total Amt",
+        "Payment Mtd", "Tax", "Discount", "Final Total", "Amount Paid",
+        "Change", "Created At"
     ]
     ws.append(headers)
 
-    # Track totals
-    total_total_amt = 0
-    total_tax = 0
-    total_discount = 0
-    total_final_total = 0
-    total_amount_paid = 0
-    total_change = 0
+    # --- Track totals ---
+    total_total_amt = total_tax = total_discount = total_final_total = total_amount_paid = total_change = 0
 
     for invoice in invoices:
-        total_amt = float(invoice.total_amount) if invoice.total_amount is not None else 0
-        tax = float(invoice.tax) if invoice.tax is not None else 0
-        discount = float(invoice.discount) if invoice.discount is not None else 0
-        final_total = float(invoice.final_total) if invoice.final_total is not None else 0
-        amount_paid = float(invoice.amount_paid) if invoice.amount_paid is not None else 0
-        change = float(invoice.change) if invoice.change is not None else 0
+        total_amt = float(invoice.total_amount or 0)
+        tax = float(invoice.tax or 0)
+        discount = float(invoice.discount or 0)
+        final_total = float(invoice.final_total or 0)
+        amount_paid = float(invoice.amount_paid or 0)
+        change = float(invoice.change or 0)
 
         ws.append([
             invoice.invoice_number or '',
@@ -1586,7 +1627,7 @@ def export_invoices_excel(request):
         total_amount_paid += amount_paid
         total_change += change
 
-    # Add totals row
+    # --- Add totals row ---
     total_row = [
         "TOTAL", "", "", "", 
         total_total_amt, "", 
@@ -1596,42 +1637,36 @@ def export_invoices_excel(request):
     ]
     ws.append(total_row)
 
-    # Adjust column widths nicely
+    # --- Adjust column widths ---
     for i, column in enumerate(ws.columns, 1):
         max_length = max(len(str(cell.value)) for cell in column if cell.value)
         ws.column_dimensions[get_column_letter(i)].width = max(12, max_length + 2)
 
-    # Create a histogram (bar chart) of total amounts per cashier (user)
-    # Prepare data: Sum final_total per user
-    from collections import defaultdict
+    # --- Create a summary chart by cashier ---
     user_totals = defaultdict(float)
     for invoice in invoices:
         user = invoice.user.username if invoice.user else 'Unknown'
-        final_total = float(invoice.final_total) if invoice.final_total is not None else 0
+        final_total = float(invoice.final_total or 0)
         user_totals[user] += final_total
 
-    # Create a new sheet for the chart data
     chart_sheet = wb.create_sheet(title="Totals by Cashier")
     chart_sheet.append(["Cashier", "Total Final Amount"])
-
     for user, amount in user_totals.items():
         chart_sheet.append([user, amount])
 
-    # Create BarChart
     chart = BarChart()
     chart.title = "Total Sales by Cashier"
     chart.x_axis.title = "Cashier"
     chart.y_axis.title = "Total Final Amount"
-
     data = Reference(chart_sheet, min_col=2, min_row=1, max_row=chart_sheet.max_row)
     cats = Reference(chart_sheet, min_col=1, min_row=2, max_row=chart_sheet.max_row)
     chart.add_data(data, titles_from_data=True)
     chart.set_categories(cats)
-    chart.height = 10  # default is 7.5
-    chart.width = 20   # default is 15
-
+    chart.height = 10
+    chart.width = 20
     chart_sheet.add_chart(chart, "D2")
 
+    # --- Return Excel file ---
     response = HttpResponse(
         content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
     )
@@ -1641,28 +1676,48 @@ def export_invoices_excel(request):
     return response
 
 
-
-from datetime import datetime, time
 from django.shortcuts import render
 from django.db.models import Sum
+from django.utils import timezone
+from datetime import datetime, time
 from .models import CustomerInvoice
-from django.db.models import Sum
 
 def invoice_list_today(request):
-    today = datetime.today()
-    start_of_day = datetime.combine(today, time.min)
-    end_of_day = datetime.combine(today, time.max)
+    # Get today's date (timezone-aware)
+    today = timezone.now()
 
-    invoices = CustomerInvoice.objects.filter(
-        created_at__gte=start_of_day,
-        created_at__lte=end_of_day
-    ).order_by('-created_at')
+    # Calculate start and end of the day (timezone-aware)
+    start_of_day = datetime.combine(today.date(), time.min)
+    end_of_day = datetime.combine(today.date(), time.max)
 
+    # Make sure both start and end of the day are timezone-aware
+    start_of_day = timezone.make_aware(start_of_day, timezone.get_current_timezone())
+    end_of_day = timezone.make_aware(end_of_day, timezone.get_current_timezone())
+
+    # Check if the logged-in user is an admin or a superuser
+    if request.user.is_superuser or request.user.groups.filter(name='admin').exists():
+        # Admin users see all invoices
+        invoices = CustomerInvoice.objects.filter(
+            created_at__gte=start_of_day,
+            created_at__lte=end_of_day,
+            is_void=False  # Exclude void invoices
+        ).order_by('-created_at')
+    else:
+        # Cashiers only see their own invoices
+        invoices = CustomerInvoice.objects.filter(
+            created_at__gte=start_of_day,
+            created_at__lte=end_of_day,
+            is_void=False,  # Exclude void invoices
+            user=request.user  # Filter by the currently logged-in user (cashier)
+        ).order_by('-created_at')
+
+    # Calculate the total sum of today's invoices (excluding void invoices)
     total_sum = invoices.aggregate(total=Sum('total_amount'))['total'] or 0
 
+    # Pass invoices and total sum to the template
     context = {
         'invoices': invoices,
-        'total_sum': total_sum,  # pass the total sum here!
+        'total_sum': total_sum,
     }
     return render(request, 'billing/invoice_list.html', context)
 
@@ -1701,3 +1756,77 @@ def export_customers_excel(request):
     response['Content-Disposition'] = 'attachment; filename=customers.xlsx'
     wb.save(response)
     return response
+
+from rest_framework.views import APIView
+from rest_framework.response import Response
+from rest_framework import status
+from billing.models import TransactionInvoice
+from billing.serializers import TransactionInvoiceSerializer
+import logging
+
+logger = logging.getLogger(__name__)
+
+class SyncSalesAPIView(APIView):
+    def post(self, request, *args, **kwargs):
+        sales_data = request.data.get("sales", [])
+        serializer = TransactionInvoiceSerializer(data=sales_data, many=True)
+
+        if serializer.is_valid():
+            saved_instances = serializer.save()
+            logger.info(f"✅ Saved {len(saved_instances)} transaction(s)")
+            return Response(
+                {"status": "success", "synced": len(saved_instances)},
+                status=status.HTTP_201_CREATED
+            )
+
+        logger.error(f"❌ Validation failed: {serializer.errors}")
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+from django.contrib import messages
+from django.shortcuts import redirect, get_object_or_404
+from django.contrib.auth.decorators import login_required, user_passes_test
+from billing.models import CustomerInvoice, TransactionInvoice
+from store.models import Product
+
+# Check if user is admin
+def is_admin(user):
+    return user.is_superuser or user.is_staff
+
+@login_required
+@user_passes_test(is_admin)
+def void_invoice(request, invoice_id):
+    invoice = get_object_or_404(CustomerInvoice, id=invoice_id)
+    
+    # Void the customer invoice
+    invoice.is_void = True
+    invoice.save()
+
+    # Retrieve all transactions linked to that invoice
+    transactions = TransactionInvoice.objects.filter(customer_invoice=invoice)
+
+    # Roll back stock and void transactions
+    for t in transactions:
+        # Add quantity back to product stock
+        if t.product and t.quantity:
+            t.product.quantity += t.quantity
+            t.product.save()
+
+        # Mark the transaction as void
+        t.is_void = True
+        t.save()
+
+    messages.success(request, f"Invoice #{invoice.id} and its transactions have been voided successfully, and stock has been restored.")
+    return redirect('billing:invoice_list')
+
+
+@login_required
+@user_passes_test(is_admin)
+def voided_invoices(request):
+    # Fetch all invoices that have been voided
+    voided_list = CustomerInvoice.objects.filter(is_void=True).order_by('-created_at')
+
+    context = {
+        'voided_list': voided_list,
+    }
+    return render(request, 'billing/voided_invoices.html', context)

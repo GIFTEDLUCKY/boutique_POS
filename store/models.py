@@ -205,3 +205,24 @@ def add_product_to_warehouse(sender, instance, created, **kwargs):
             store=warehouse,
             defaults={"quantity": 0}  # Default to 0 until manually updated
         )
+
+
+
+# store/models.py
+from django.db import models
+from django.utils import timezone
+
+class ProductSnapshot(models.Model):
+    product = models.ForeignKey('Product', on_delete=models.CASCADE)
+    store = models.ForeignKey('Store', on_delete=models.PROTECT)
+    quantity = models.PositiveIntegerField()
+    cost_price = models.DecimalField(max_digits=10, decimal_places=2)
+    selling_price = models.DecimalField(max_digits=10, decimal_places=2)
+    discount = models.DecimalField(max_digits=5, decimal_places=2, default=0.0)
+    snapshot_date = models.DateTimeField(default=timezone.now)
+
+    def __str__(self):
+        return f"Snapshot of {self.product.name} at {self.snapshot_date.strftime('%d-%m-%Y %H:%M')}"
+
+    class Meta:
+        ordering = ['-snapshot_date']

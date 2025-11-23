@@ -20,11 +20,11 @@
         }
 
         .invoice-container {
-            width: 85mm; /* Adjust to 58mm or 80mm based on your printer size */
+            width: 72mm; /* instead of 80mm */
             margin: 0 auto;
-            padding: 10px;
-            border: 0.2px solid black;
-            font-size: 12px; /* Smaller font size suitable for receipts */
+            padding: 5px; /* smaller padding so content fits inside printable area */
+            border: 0.2px solid black; /* avoid printed border expanding the width */
+            font-size: 12px;
         }
 
         h2, h3, hr {
@@ -66,6 +66,13 @@
             font-size: 10px;
         }
 
+        body, table, p, td, th, h2, h3 {
+            color: #000;              /* pure black */
+            font-weight: 500;         /* bolden all text */
+            -webkit-print-color-adjust: exact; /* prevents Chrome from lightening colors */
+            print-color-adjust: exact;
+        }
+
         @media print {
             body {
                 margin: 0;
@@ -74,7 +81,7 @@
 
             .invoice-container {
                 margin: 0 auto;
-                width: 85mm; /* Ensure correct width for receipt roll paper */
+                width: 72mm; /* Ensure correct width for receipt roll paper */
                 page-break-after: auto; /* Ensures receipt prints as one page */
             }
 
@@ -85,6 +92,12 @@
             .navbar {
                 display: none !important;
             }
+
+	#license-notice {
+        display: none !important;
+        visibility: hidden !important;
+        opacity: 0 !important;
+    }
         }
     </style>
 </head>
@@ -96,7 +109,7 @@
 
         </div>
         
-        <h2>GLIMS Inventory </h2>
+        <h2>Classic M Collection </h2>
 <br>
         <h3>Invoice Details</h3>
         <hr>
@@ -164,7 +177,7 @@
 
         </table>
 
-        <p>Thank you for your purchase!</p>
+        <p>Thank you for your patronage!</p>
         <p>Store Address: {{ store_info.location }}</p>
         <p>Contact: {{ store_info.manager_name }} &nbsp;&nbsp; {{ store_info.manager_contact }}</p>
 
@@ -199,87 +212,81 @@
 
     </div>
 
-    <script>
-    document.addEventListener("DOMContentLoaded", function () {
-        const nextUrl = decodeURIComponent("{{ request.GET.next|urlencode }}");
+<script>
+document.addEventListener("DOMContentLoaded", function () {
+    const nextUrl = decodeURIComponent("{{ request.GET.next|urlencode }}");
 
-        // Print Button
-        document.getElementById("print-button").addEventListener("click", function () {
+    // Clear cart and redirect helper
+    function clearCartAndRedirect(targetUrl) {
+        fetch("{% url 'billing:clear_cart' %}", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/json",
+            },
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === "success") {
+                window.location.href = targetUrl;
+            } else {
+                console.error("Failed to clear the cart.");
+            }
+        })
+        .catch(error => console.error("Error:", error));
+    }
+
+    // Print button
+    document.getElementById("print-button").addEventListener("click", function () {
+        // 1️⃣ Open cash drawer via backend
+        fetch("/billing/open_drawer/{{ customer_invoice.id }}/", {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+                "Content-Type": "application/json"
+            }
+        })
+        .then(resp => resp.json())
+        .then(data => {
+            if (data.drawer_opened) {
+                console.log("Cash drawer opened successfully!");
+            } else {
+                console.warn("Failed to open cash drawer.");
+            }
+
+            // 2️⃣ Trigger print
+            window.print();
+
+            // 3️⃣ Clear cart and redirect
+            const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
+            clearCartAndRedirect(redirectTarget);
+        })
+        .catch(err => {
+            console.error("Drawer error:", err);
+            // Print anyway
             window.print();
             const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
             clearCartAndRedirect(redirectTarget);
         });
-
-        // Cancel Button
-        document.getElementById("cancel-button").addEventListener("click", function () {
-            const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
-            clearCartAndRedirect(redirectTarget);
-        });
-
-        // Handle sales, dashboard, and re-print bill links
-        let salesLink = document.getElementById("salesLink");
-        let dashboardLink = document.getElementById("dashboardLink");
-        let rePrintBillLink = document.getElementById("rePrintBillLink");
-
-        function clearCartAndRedirect(targetUrl) {
-            console.log("Clearing cart...");  // Debugging log
-            fetch("{% url 'billing:clear_cart' %}", {
-                method: "POST",
-                headers: {
-                    "X-CSRFToken": "{{ csrf_token }}",
-                    "Content-Type": "application/json",
-                },
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === "success") {
-                    console.log("Cart cleared successfully. Redirecting to:", targetUrl);
-                    window.location.href = targetUrl;
-                } else {
-                    console.error("Failed to clear the cart.");
-                }
-            })
-            .catch(error => console.error("Error:", error));
-        }
-
-        if (salesLink) {
-            salesLink.addEventListener("click", function (e) {
-                e.preventDefault();
-                console.log("Sales link clicked.");
-                clearCartAndRedirect("{% url 'billing:sales_view' %}");
-            });
-        }
-
-        if (dashboardLink) {
-            dashboardLink.addEventListener("click", function (e) {
-                e.preventDefault();
-                console.log("Dashboard link clicked.");
-                clearCartAndRedirect("{% url 'dashboard:index' %}");
-            });
-        }
-
-        if (rePrintBillLink) {
-            rePrintBillLink.addEventListener("click", function (e) {
-                e.preventDefault();
-                console.log("Re-Print Bill link clicked.");
-                clearCartAndRedirect("{% url 'billing:transaction_search' %}");
-            });
-        }
-
-        // Prevent undesired back button behavior after generating an invoice
-        function handleBackButton() {
-            console.log("Back button detected, clearing cart...");
-            const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
-            clearCartAndRedirect(redirectTarget);
-        }
-
-        window.addEventListener('popstate', function(event) {
-            handleBackButton();
-        });
-
-        window.history.pushState(null, "", window.location.href);
     });
+
+    // Cancel button
+    document.getElementById("cancel-button").addEventListener("click", function () {
+        const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
+        clearCartAndRedirect(redirectTarget);
+    });
+
+    // Optional: handle back button
+    function handleBackButton() {
+        const redirectTarget = nextUrl ? nextUrl : "{% url 'billing:sales_view' %}";
+        clearCartAndRedirect(redirectTarget);
+    }
+
+    window.addEventListener('popstate', handleBackButton);
+    window.history.pushState(null, "", window.location.href);
+});
 </script>
+
 
           
 </body>

@@ -75,6 +75,7 @@ class CustomerInvoice(models.Model):
     store = models.ForeignKey('store.Store', on_delete=models.CASCADE)  # NEW
     
     synced = models.BooleanField(default=False)
+    is_void = models.BooleanField(default=False)  # 👈 Add this line
 
     def save(self, *args, **kwargs):
         if self.tax is None:
@@ -173,12 +174,18 @@ class TransactionInvoice(models.Model):
     adjusted_final_price = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal("0.00"))
     store = models.ForeignKey(Store, on_delete=models.CASCADE)
     cart_id = models.CharField(max_length=255, blank=True, null=True)
-
     user = models.ForeignKey(get_user_model(), on_delete=models.CASCADE)
     created_at = models.DateTimeField(default=now)
 
+    # ✅ Add this field
+    is_synced = models.BooleanField(default=False)
+    is_void = models.BooleanField(default=False)  # 👈 Add this line
+
     def __str__(self):
         return f"Transaction for {self.product.name} (Qty: {self.quantity})"
+
+    # … rest of your methods remain unchanged …
+
 
     def fetch_global_rates(self):
         from store.models import TaxAndDiscount

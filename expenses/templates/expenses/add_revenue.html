@@ -2,7 +2,7 @@
 
 {% block content %}
 <div style="max-width: 500px; margin: auto; padding: 20px; border: 1px solid #ddd; border-radius: 8px; box-shadow: 2px 2px 10px rgba(0, 0, 0, 0.1);">
-    <h2 style="text-align: center; color: #333;">Add Revenue</h2>
+    <h2 style="text-align: center; color: #333;">Add Peticash</h2>
     
     <form method="post" action="{% url 'expenses:add_revenue' %}" enctype="multipart/form-data" style="display: flex; flex-direction: column; gap: 15px;">
         {% csrf_token %}
@@ -30,7 +30,7 @@
         {{ form.receipt_attachment }}
 
         <button type="submit" style="background: green; color: white; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 5px; cursor: pointer;">
-            Save Revenue
+            Save Peticash
         </button>
     </form>
 </div>
@@ -38,7 +38,7 @@
 <br>
 <div style="text-align: center;">
     <a href="{% url 'expenses:revenue_list' %}" style="background: blue; color: white; padding: 12px; font-size: 14px; text-decoration: none; border-radius: 5px; display: inline-block;">
-        View Revenue List
+        View Peticash List
     </a>
 </div>
 

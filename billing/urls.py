@@ -1,6 +1,7 @@
 from django.urls import path
 from . import views
 from .views import total_transaction_value
+from .api_views import SyncSalesAPIView
 
 app_name = 'billing'
 
@@ -53,7 +54,13 @@ urlpatterns = [
     path('invoice/<str:invoice_number>/', views.invoice_detail, name='invoice_detail'),
     path('export-excel/', views.export_invoices_excel, name='export_invoices_excel'),
     path('invoices/today/', views.invoice_list_today, name='invoice_list_today'),
+    path('invoice/<int:invoice_id>/void/', views.void_invoice, name='void_invoice'),
+    path('invoices/voided/', views.voided_invoices, name='voided_invoices'),
 
+    path('api/sync/sales/', SyncSalesAPIView.as_view(), name='sync-sales'),
 
+    
+    # billing/urls.py
+    path("open_drawer/<int:invoice_id>/", views.open_drawer_view, name="open_drawer"),
 
 ]

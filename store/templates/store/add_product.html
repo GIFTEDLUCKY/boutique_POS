@@ -162,7 +162,16 @@
 
             <div class="form-row align-items-center mb-3 button-container">
                 <div class="col-auto">
-                    <a href="{% url 'store:add_product' %}?search_field={{ search_field }}&search_value={{ search_value }}&export=1" class="btn btn-success" style="background-color: #8b4513; color: #fff;"s>Export</a>
+                    <a href="{% url 'store:add_product' %}?search_field={{ search_field }}&search_value={{ search_value }}&export=1" class="btn btn-success me-2" style="background-color: #8b4513; color: #fff;">Export</a>
+
+                    <form action="{% url 'store:take_snapshot' %}" method="post" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning" onclick="return confirm('Are you sure you want to take a snapshot?');">
+                        Take Snapshot
+                    </button>
+
+                </form>
+
                 </div>
                 <!--<div class="col-auto">
                     <a href="{% url 'store:manage_tax_discount' %}" class="btn btn" style="background-color: #8b4513; color: #fff;">

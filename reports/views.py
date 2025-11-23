@@ -56,8 +56,10 @@ def profit_and_loss_view(request):
     store_id = request.GET.get('store')
     start_date = request.GET.get('start')
     end_date = request.GET.get('end')
-
-    invoices = TransactionInvoice.objects.select_related('product', 'store').all()
+    
+    # ✅ Exclude voided invoices
+    invoices = TransactionInvoice.objects.select_related('product', 'store', 'customer_invoice') \
+        .filter(customer_invoice__is_void=False)
 
     selected_store = None
 
@@ -333,8 +335,10 @@ def export_profit_loss_excel(request):
 from django.shortcuts import render, redirect
 from reports.forms import PriceHistoryForm
 from django.contrib.auth.decorators import login_required
+from django.db import transaction, IntegrityError
+from django.contrib import messages
+from reports.models import PriceHistory
 import logging
-from django.db import transaction
 
 logger = logging.getLogger(__name__)
 
@@ -343,30 +347,88 @@ def price_history_view(request):
     if request.method == 'POST':
         form = PriceHistoryForm(request.POST)
         if form.is_valid():
-            with transaction.atomic():
-                product = form.cleaned_data['product']
-                new_cp = form.cleaned_data['new_cp']
-                new_sp = form.cleaned_data['new_sp']
+            product = form.cleaned_data.get('product')
+            new_cp = form.cleaned_data.get('new_cp')
+            new_sp = form.cleaned_data.get('new_sp')
 
-                # Update product prices directly
-                product.cost_price = new_cp
-                product.selling_price = new_sp
-                product.save(update_fields=['cost_price', 'selling_price'])
+            # --- Validate required fields ---
+            missing_fields = []
+            if product is None:
+                missing_fields.append("Product")
+            if new_cp is None:
+                missing_fields.append("New Cost Price")
+            if new_sp is None:
+                missing_fields.append("New Selling Price")
 
-                logger.info(f"Updated Product {product.id} prices to CP={product.cost_price}, SP={product.selling_price}")
-                print(f"Updated Product {product.id} prices to CP={product.cost_price}, SP={product.selling_price}")
+            if missing_fields:
+                messages.error(request, f"Please fill in the following fields: {', '.join(missing_fields)}")
+            else:
+                try:
+                    with transaction.atomic():
+                        # Save old prices first
+                        old_cp = product.cost_price
+                        old_sp = product.selling_price
 
-            return redirect('price_history')
+                        # --- Update product once ---
+                        product.cost_price = new_cp
+                        product.selling_price = new_sp
+                        product.save(update_fields=['cost_price', 'selling_price'])
+
+                        # --- Create PriceHistory record with changed_by ---
+                        PriceHistory.objects.create(
+                            product=product,
+                            old_cp=old_cp,
+                            new_cp=new_cp,
+                            old_sp=old_sp,
+                            new_sp=new_sp,
+                            final_price=new_sp,  # adjust if needed
+                            changed_by=request.user
+                        )
+
+                        logger.info(f"Updated Product {product.id} prices to CP={product.cost_price}, SP={product.selling_price}")
+                        messages.success(request, f"Prices for '{product.name}' updated successfully.")
+
+                    return redirect('price_history')
+
+                except IntegrityError as e:
+                    logger.error(f"Database error while updating prices: {e}")
+                    messages.error(request, "Database error: Could not save price history. Please check your inputs.")
+        else:
+            # Add form field errors to messages
+            for field, errors in form.errors.items():
+                for error in errors:
+                    messages.error(request, f"{form.fields[field].label}: {error}")
     else:
         form = PriceHistoryForm()
 
-    # Display all price history records as before
-    from reports.models import PriceHistory
-    history = PriceHistory.objects.select_related('product', 'changed_by').all().order_by('-date_changed')
+    # --- GET: filter/search PriceHistory ---
+    history = PriceHistory.objects.select_related('product__store', 'changed_by').all().order_by('-date_changed')
+
+    store = request.GET.get('store', '').strip()
+    product_name = request.GET.get('product', '').strip()
+    user = request.GET.get('user', '').strip()
+    start_date = request.GET.get('start_date', '').strip()
+    end_date = request.GET.get('end_date', '').strip()
+
+    if store:
+        history = history.filter(product__store__name__icontains=store)
+    if product_name:
+        history = history.filter(product__name__icontains=product_name)
+    if user:
+        history = history.filter(changed_by__username__icontains=user)
+    if start_date:
+        history = history.filter(date_changed__date__gte=start_date)
+    if end_date:
+        history = history.filter(date_changed__date__lte=end_date)
+
     return render(request, 'reports/price_history.html', {
+        'form': form,
         'history': history,
-        'form': form
+        'request': request,
+        'total_records': history.count()
     })
+
+
 
 
 from django.http import JsonResponse

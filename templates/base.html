@@ -106,105 +106,125 @@
 
 
         
-        <!-- Navbar -->
-        <nav class="navbar navbar-expand-lg mb-4">
-            <div class="container-fluid">
-                <a class="navbar-brand" href="#">GLIMS Inventory</a>
-                <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
-                    <span class="navbar-toggler-icon"></span>
-                </button>
-                <div class="collapse navbar-collapse" id="navbarNav">
-                    <ul class="navbar-nav me-auto">
-                        {% if user.is_authenticated %}
-                            <li class="nav-item">
-                                <a id="dashboardLink" class="nav-link" href="{% url 'dashboard:index' %}">Dashboard</a>
-                            </li>
+<!-- Navbar -->
+<nav class="navbar navbar-expand-lg mb-4">
+    <div class="container-fluid">
+        <a class="navbar-brand" href="#">GLIMS Inventory</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" 
+                aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
+            <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+            <ul class="navbar-nav me-auto">
+                {% if user.is_authenticated %}
+                    <!-- Dashboard for all users -->
+                    <li class="nav-item">
+                        <a id="dashboardLink" class="nav-link" href="{% url 'dashboard:index' %}">Dashboard</a>
+                    </li>
 
-                            {% if user|has_group:"Admin" %}
-                                <!-- Admin-specific links -->
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Finance
-                                    </a>
-                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                        <li><a class="dropdown-item" href="{% url 'expenses:add_expenditure' %}">Add Expense</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'expenses:expense_list' %}">View Expenses</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'expenses:add_revenue' %}">Add Revenue</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'expenses:revenue_list' %}">View Revenue List</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'billing:all_transactions' %}">All Transactions</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'billing:invoice_list' %}">Invoices</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'price_history' %}">View Price History</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'profit_and_loss' %}">Profit & Loss</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'billing:customer_list' %}">Customers</a></li>
-                                    
-                                    </ul>
-                                </li>
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdown" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Store
-                                    </a>
-                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdown">
-                                        <li><a class="dropdown-item" href="{% url 'store:add_supplier' %}">Manage Suppliers</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'store:add_category' %}">Manage Categories</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'store:add_store' %}">Manage Store</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'store:add_product' %}">Add Product</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'inventory:add_stock' %}">Add Warehouse Stock</a></li>
-                                        <li><a class="dropdown-item" href="{% url 'inventory:requested_items_form' %}">View Requested Items</a></li> 
-                                        
-                                    </ul>
-                                    
-                                </li>
+                    <!-- Admin Links -->
+                    {% if user|has_group:"Admin" %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFinance" role="button" 
+                               data-bs-toggle="dropdown" aria-expanded="false">Finance</a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownFinance">
+                                <li><a class="dropdown-item" href="{% url 'expenses:add_expenditure' %}">Add Expense</a></li>
+                                <li><a class="dropdown-item" href="{% url 'expenses:expense_list' %}">View Expenses</a></li>
+                                <li><a class="dropdown-item" href="{% url 'expenses:add_revenue' %}">Add Revenue</a></li>
+                                <li><a class="dropdown-item" href="{% url 'expenses:revenue_list' %}">View Revenue List</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:all_transactions' %}">All Transactions</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:invoice_list' %}">Invoices</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:voided_invoices' %}">Voided Invoices</a></li>
+                                <li><a class="dropdown-item" href="{% url 'price_history' %}">Update Price History</a></li>
+                                <li><a class="dropdown-item" href="{% url 'profit_and_loss' %}">Profit & Loss</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:customer_list' %}">Customers</a></li>
+                            </ul>
+                        </li>
 
-                        
-                            {% endif %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownStore" role="button" 
+                               data-bs-toggle="dropdown" aria-expanded="false">Store</a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownStore">
+                                <li><a class="dropdown-item" href="{% url 'store:add_supplier' %}">Manage Suppliers</a></li>
+                                <li><a class="dropdown-item" href="{% url 'store:add_category' %}">Manage Categories</a></li>
+                                <li><a class="dropdown-item" href="{% url 'store:add_store' %}">Manage Store</a></li>
+                                <li><a class="dropdown-item" href="{% url 'store:add_product' %}">Add Product</a></li>
+                                <li><a class="dropdown-item" href="{% url 'store:snapshot_list' %}">Product Snapshots</a></li>
+                                <li><a class="dropdown-item" href="{% url 'inventory:add_stock' %}">Add Warehouse Stock</a></li>
+                                <li><a class="dropdown-item" href="{% url 'inventory:requested_items_form' %}">View Requested Items</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
 
-                            {% if user|has_group:"Admin" or user|has_group:"Cashier" %}
-                                <!-- Cashier-specific links -->
-                                <li class="nav-item dropdown">
-                                    <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownAccount" role="button" data-bs-toggle="dropdown" aria-expanded="false">
-                                        Billing
-                                    </a>
-                                    <ul class="dropdown-menu" aria-labelledby="navbarDropdownAccount">
-                                        <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:sales_view' %}">Sales</a></li>
-                                        <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:invoice_list_today' %}">Today's Invoices</a></li>
-                                        <!--<li><a id="rePrintBillLink" class="dropdown-item" href="{% url 'billing:transaction_search' %}">Re-Print Bill</a></li>-->
-                                    </ul>
-                                    
-                                        
-                                    
-                                </li>
-                                
-                                
-                                
-                            {% endif %}
-                        {% endif %}
-                    </ul>
-                    <ul class="navbar-nav ms-auto align-items-center">
-                        {% if user.is_authenticated %}
-                            <li class="nav-item">
-                                <span class="navbar-text">Welcome, {{ user.first_name|default:user.username }}!</span>
-                            </li>
-                            <li class="nav-item">
-                                <span class="navbar-text"><strong>Date:</strong> <span id="current-date"></span></span>
-                            </li>
-                            <li class="nav-item">
-                                <span class="navbar-text"><strong>Time:</strong> <span id="current-time"></span></span>
-                            </li>
-                            <li class="nav-item">
-                                <a class="btn btn-logout" href="{% url 'accounts:logout' %}">Logout</a>
-                            </li>
-                        {% else %}
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
-                            </li>
-                            <li class="nav-item">
-                                <a class="nav-link" href="{% url 'accounts:register' %}">Register</a>
-                            </li>
-                        {% endif %}
-                    </ul>
-                </div>
-            </div>
-        </nav>
+                    
+
+                    <!-- Staff Links -->
+                    {% if user|has_group:"Staff" %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownFinance" role="button" 
+                               data-bs-toggle="dropdown" aria-expanded="false">Finance</a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownFinance">
+                                <li><a class="dropdown-item" href="{% url 'expenses:add_expenditure' %}">Add Expense</a></li>
+                                <li><a class="dropdown-item" href="{% url 'expenses:expense_list' %}">View Expenses</a></li>
+                                <li><a class="dropdown-item" href="{% url 'expenses:add_revenue' %}">Add Peticash</a></li>
+                                <li><a class="dropdown-item" href="{% url 'expenses:revenue_list' %}">View Peticash List</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:all_transactions' %}">All Transactions</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:invoice_list' %}">Invoices</a></li>
+                                <li><a class="dropdown-item" href="{% url 'price_history' %}">Update Price History</a></li>
+                                <li><a class="dropdown-item" href="{% url 'billing:customer_list' %}">Customers</a></li>
+                            </ul>
+                        </li>
+
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownStore" role="button" 
+                               data-bs-toggle="dropdown" aria-expanded="false">Requisition</a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownStore">
+                                <li><a class="dropdown-item" href="{% url 'inventory:requested_items_form' %}">View Requested Items</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+
+                    <!-- Cashier Links -->
+                    {% if user|has_group:"Admin" or user|has_group:"Cashier" or user|has_group:"Staff" %}
+                        <li class="nav-item dropdown">
+                            <a class="nav-link dropdown-toggle" href="#" id="navbarDropdownBilling" role="button" 
+                               data-bs-toggle="dropdown" aria-expanded="false">Billing</a>
+                            <ul class="dropdown-menu" aria-labelledby="navbarDropdownBilling">
+                                <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:sales_view' %}">Sales</a></li>
+                                <li><a id="salesLink" class="dropdown-item" href="{% url 'billing:invoice_list_today' %}">Today's Invoices</a></li>
+                            </ul>
+                        </li>
+                    {% endif %}
+                {% endif %}
+            </ul>
+
+            <!-- Right-aligned user info / logout -->
+            <ul class="navbar-nav ms-auto align-items-center">
+                {% if user.is_authenticated %}
+                    <li class="nav-item">
+                        <span class="navbar-text">Welcome, {{ user.first_name|default:user.username }}!</span>
+                    </li>
+                    <li class="nav-item">
+                        <span class="navbar-text"><strong>Date:</strong> <span id="current-date"></span></span>
+                    </li>
+                    <li class="nav-item">
+                        <span class="navbar-text"><strong>Time:</strong> <span id="current-time"></span></span>
+                    </li>
+                    <li class="nav-item">
+                        <a class="btn btn-logout" href="{% url 'accounts:logout' %}">Logout</a>
+                    </li>
+                {% else %}
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'accounts:login' %}">Login</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'accounts:register' %}">Register</a>
+                    </li>
+                {% endif %}
+            </ul>
+        </div>
+    </div>
+</nav>
 
         <!-- Main Content -->
 
@@ -229,7 +249,7 @@
         
         <!-- Footer -->
         <footer>
-            <p>&copy; 2025 GLIMS Inventory. All Rights Reserved.+234 8067184880</p>
+            <p>&copy; 2025 GLIMS Inventory. All Rights Reserved.</p>
         </footer>
 
                 <!-- Load Bootstrap Locally -->
@@ -315,6 +335,57 @@
     });
 </script>
 
+
+{% if user.is_authenticated %}
+<script>
+(function() {
+    let inactivityLimit = 60 * 1000; // 1 minute for testing
+    let logoutUrl = "{% url 'accounts:logout' %}";
+    let timeout;
+
+    // Read the CSRF token from the cookie
+    function getCSRFToken() {
+        let cookieValue = null;
+        const cookies = document.cookie.split(';');
+        for (let cookie of cookies) {
+            cookie = cookie.trim();
+            if (cookie.startsWith('csrftoken=')) {
+                cookieValue = cookie.substring('csrftoken='.length);
+                break;
+            }
+        }
+        return cookieValue;
+    }
+
+    function logoutByPost() {
+        const csrfToken = getCSRFToken(); // <--- NOW ALWAYS WORKS
+
+        const form = document.createElement("form");
+        form.method = "POST";
+        form.action = logoutUrl;
+
+        const csrfInput = document.createElement("input");
+        csrfInput.type = "hidden";
+        csrfInput.name = "csrfmiddlewaretoken";
+        csrfInput.value = csrfToken;
+
+        form.appendChild(csrfInput);
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function resetTimer() {
+        clearTimeout(timeout);
+        timeout = setTimeout(logoutByPost, inactivityLimit);
+    }
+
+    ['click', 'mousemove', 'keypress', 'scroll', 'touchstart']
+        .forEach(event => document.addEventListener(event, resetTimer));
+
+    resetTimer();
+})();
+</script>
+{% endif %}
 
 
     </body>

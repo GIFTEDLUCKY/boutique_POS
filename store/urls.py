@@ -49,4 +49,8 @@ urlpatterns = [
     path('scan-barcode/', views.handle_barcode, name='handle_barcode'),
 
     path('search-products/', views.search_products, name='search-products'),
+
+    path('take-snapshot/', views.take_snapshot, name='take_snapshot'),
+
+    path('snapshots/', views.snapshot_list, name='snapshot_list')
 ]

@@ -48,13 +48,10 @@ def product_list(request, store_id=None):
 
 
 
-# View for adding a new product
 from django.shortcuts import render, redirect
 from store.models import Product
 from store.forms import ProductForm
-
-import csv
-from django.http import HttpResponse
+from django.contrib import messages
 
 import openpyxl
 from openpyxl.utils import get_column_letter
@@ -62,48 +59,60 @@ from django.http import HttpResponse
 
 from django.contrib.auth.decorators import login_required
 
+
 @login_required
 def add_product(request):
-     # Export logic
-     if 'export' in request.GET:
-         search_field = request.GET.get('search_field', '')
-         search_value = request.GET.get('search_value', '')
+    # Export logic
+    if 'export' in request.GET:
+        search_field = request.GET.get('search_field', '')
+        search_value = request.GET.get('search_value', '')
 
-         allowed_fields = ['name', 'category', 'supplier', 'store', 'status']
-         products = Product.objects.all()
+        allowed_fields = ['name', 'category', 'supplier', 'store', 'status']
+        products = Product.objects.all()
 
-         if search_field in allowed_fields and search_value:
-             if search_field == 'category':
-                 products = products.filter(category__name__icontains=search_value)
-             elif search_field == 'supplier':
-                 products = products.filter(supplier__supplier_name__icontains=search_value)
-             elif search_field == 'store':
-                 products = products.filter(store__name__icontains=search_value)
-             elif search_field == 'status':
-                 if search_value.lower() == 'active':
-                     products = products.filter(status=True)
-                 elif search_value.lower() == 'inactive':
-                     products = products.filter(status=False)
-             else:
-                 products = products.filter(**{f'{search_field}__icontains': search_value})
+        if search_field in allowed_fields and search_value:
+            if search_field == 'category':
+                products = products.filter(category__name__icontains=search_value)
+            elif search_field == 'supplier':
+                products = products.filter(supplier__supplier_name__icontains=search_value)
+            elif search_field == 'store':
+                products = products.filter(store__name__icontains=search_value)
+            elif search_field == 'status':
+                if search_value.lower() == 'active':
+                    products = products.filter(status=True)
+                elif search_value.lower() == 'inactive':
+                    products = products.filter(status=False)
+            else:
+                products = products.filter(**{f'{search_field}__icontains': search_value})
 
-         # Create Excel file
-         wb = openpyxl.Workbook()
-         ws = wb.active
-         ws.title = "Products"
+        # Create Excel file
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Products"
 
-         # Add headers
-         headers = [
-             "Name", "Category", "Supplier", "Store", "Quantity",
-             "Cost Price", "Selling Price", "Discount", "Final Price", "Assumed Profit", "Status"
-         ]
-         for col_num, header in enumerate(headers, start=1):
-             ws.cell(row=1, column=col_num, value=header)
+        # Add headers
+        headers = [
+            "Name", "Category", "Supplier", "Store", "Quantity",
+            "Cost Price", "Selling Price", "Discount", "Product Tax",
+            "Final Price", "Assumed Profit", "Total Cost", "Total Selling", "Status"
+        ]
+        for col_num, header in enumerate(headers, start=1):
+            ws.cell(row=1, column=col_num, value=header)
 
-         # Add product data
-         for row_num, product in enumerate(products, start=2):
+        # Add product data
+        total_cost_sum = 0
+        total_selling_sum = 0
+
+        for row_num, product in enumerate(products, start=2):
             tax = (product.selling_price * product.product_tax) / 100
             final_price = (product.selling_price - product.discount) + tax
+
+            total_cost = product.quantity * product.cost_price
+            total_selling = product.quantity * product.selling_price
+
+            # keep running totals
+            total_cost_sum += total_cost
+            total_selling_sum += total_selling
 
             ws.cell(row=row_num, column=1, value=product.name)
             ws.cell(row=row_num, column=2, value=product.category.name)
@@ -113,67 +122,75 @@ def add_product(request):
             ws.cell(row=row_num, column=6, value=product.cost_price)
             ws.cell(row=row_num, column=7, value=product.selling_price)
             ws.cell(row=row_num, column=8, value=product.discount)
-            ws.cell(row=row_num, column=9, value=final_price)  # Updated to Final Price
-            ws.cell(row=row_num, column=10, value=product.assumed_profit)
-            ws.cell(row=row_num, column=11, value="Active" if product.status else "Inactive")
+            ws.cell(row=row_num, column=9, value=product.product_tax)
+            ws.cell(row=row_num, column=10, value=final_price)  # Final Price
+            ws.cell(row=row_num, column=11, value=product.assumed_profit)
+            ws.cell(row=row_num, column=12, value=total_cost)    # ✅ Total Cost
+            ws.cell(row=row_num, column=13, value=total_selling) # ✅ Total Selling
+            ws.cell(row=row_num, column=14, value="Active" if product.status else "Inactive")
 
-         # Set column widths
-         for col_num, _ in enumerate(headers, start=1):
-             ws.column_dimensions[get_column_letter(col_num)].width = 15
+        # ✅ Add totals row at the bottom
+        last_row = len(products) + 2
+        ws.cell(row=last_row, column=11, value="TOTALS")  # label under Assumed Profit
+        ws.cell(row=last_row, column=12, value=total_cost_sum)
+        ws.cell(row=last_row, column=13, value=total_selling_sum)
 
-         # Prepare the response
-         response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
-         response['Content-Disposition'] = 'attachment; filename=products.xlsx'
-         wb.save(response)
-         return response
+        # Set column widths
+        for col_num, _ in enumerate(headers, start=1):
+            ws.column_dimensions[get_column_letter(col_num)].width = 12
 
-     # Handle the search functionality
-     search_field = request.GET.get('search_field', '')
-     search_value = request.GET.get('search_value', '')
+        # Prepare the response
+        response = HttpResponse(content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet")
+        response['Content-Disposition'] = 'attachment; filename=products.xlsx'
+        wb.save(response)
+        return response
 
-     allowed_fields = ['name', 'category', 'supplier', 'store', 'status']
-     products = Product.objects.all()
+    # Handle the search functionality
+    search_field = request.GET.get('search_field', '')
+    search_value = request.GET.get('search_value', '')
 
-     if search_field in allowed_fields and search_value:
-         if search_field == 'category':
-             products = products.filter(category__name__icontains=search_value)
-         elif search_field == 'supplier':
-             products = products.filter(supplier__supplier_name__icontains=search_value)
-         elif search_field == 'store':
-             products = products.filter(store__name__icontains=search_value)
-         elif search_field == 'status':
-             if search_value.lower() == 'active':
-                 products = products.filter(status=True)
-             elif search_value.lower() == 'inactive':
-                 products = products.filter(status=False)
-         else:
-             products = products.filter(**{f'{search_field}__icontains': search_value})
+    allowed_fields = ['name', 'category', 'supplier', 'store', 'status']
+    products = Product.objects.all()
 
-     # Handle form submission for adding products
-     if request.method == 'POST':
-         form = ProductForm(request.POST)
-         if form.is_valid():
-             form.save()
-             messages.success(request, "Product added successfully!")  # ✅ Success message
-             return redirect('store:add_product')
-         else:
-             messages.error(request, "Error adding product. Please check the form.")  # ❌ Error message
-     else:
-         form = ProductForm()
+    if search_field in allowed_fields and search_value:
+        if search_field == 'category':
+            products = products.filter(category__name__icontains=search_value)
+        elif search_field == 'supplier':
+            products = products.filter(supplier__supplier_name__icontains=search_value)
+        elif search_field == 'store':
+            products = products.filter(store__name__icontains=search_value)
+        elif search_field == 'status':
+            if search_value.lower() == 'active':
+                products = products.filter(status=True)
+            elif search_value.lower() == 'inactive':
+                products = products.filter(status=False)
+        else:
+            products = products.filter(**{f'{search_field}__icontains': search_value})
 
-     # Calculate Final Price for each product
-     for product in products:
-        tax = (product.selling_price * product.product_tax) / 100  # Calculates percentage
+    # Handle form submission for adding products
+    if request.method == 'POST':
+        form = ProductForm(request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Product added successfully!")  # ✅ Success message
+            return redirect('store:add_product')
+        else:
+            messages.error(request, "Error adding product. Please check the form.")  # ❌ Error message
+    else:
+        form = ProductForm()
+
+    # Calculate Final Price for each product (for display in template)
+    for product in products:
+        tax = (product.selling_price * product.product_tax) / 100
         product.final_price = (product.selling_price - product.discount) + tax
 
-
-     # Return the response with search parameters and filtered products
-     return render(request, 'store/add_product.html', {
-         'form': form,
-         'products': products,
-         'search_field': search_field,
-         'search_value': search_value
-     })
+    # Return the response with search parameters and filtered products
+    return render(request, 'store/add_product.html', {
+        'form': form,
+        'products': products,
+        'search_field': search_field,
+        'search_value': search_value
+    })
 
 
 from django.http import JsonResponse
@@ -754,3 +771,34 @@ def search_products(request):
                 'stock': product.quantity,
             })
     return JsonResponse({'results': results})
+
+
+
+
+# store/views.py
+from django.shortcuts import redirect
+from django.contrib import messages
+from .models import Product, ProductSnapshot
+
+def take_snapshot(request):
+    # Get all active products
+    products = Product.objects.filter(status=True)
+    
+    # Loop through products and create snapshots
+    for product in products:
+        ProductSnapshot.objects.create(
+            product=product,
+            store=product.store,
+            quantity=product.quantity,
+            cost_price=product.cost_price,
+            selling_price=product.selling_price,
+            discount=product.discount
+        )
+    
+    messages.success(request, "Product snapshot created successfully!")
+    return redirect('store:product_list')  # Replace with the name of your product page
+
+
+def snapshot_list(request):
+    snapshots = ProductSnapshot.objects.select_related('product', 'store').all()
+    return render(request, 'store/snapshot_list.html', {'snapshots': snapshots})
